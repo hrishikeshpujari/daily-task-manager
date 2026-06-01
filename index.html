@@ -425,9 +425,11 @@ $("#captureForm").addEventListener("submit",e=>{ e.preventDefault(); const i=$("
 $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(!b) return; state.view=b.dataset.view; state.openId=null; document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b)); render(); });
 
 /* weekly email */
-function weeklyText(){ const since=Date.now()-7*DAY; const done=state.tasks.filter(t=>t.done&&!t.deleted&&(t.completedAt||0)>=since).sort((a,b)=>b.completedAt-a.completedAt);
+function weeklyText(done){ done=done||state.tasks.filter(t=>t.done&&!t.deleted&&(t.completedAt||0)>=Date.now()-7*DAY).sort((a,b)=>b.completedAt-a.completedAt);
   return `Last week I completed ${done.length} item${done.length===1?"":"s"}:\n`+(done.map(t=>"• "+t.text).join("\n")||"(nothing logged yet)"); }
-function openWeek(){ $("#weekText").value=weeklyText(); $("#weekModal").classList.add("on"); }
+async function openWeek(){ const ta=$("#weekText"); $("#weekModal").classList.add("on");
+  if(paReady()){ ta.value="✨ Drafting your weekly summary…"; ta.value=await generateWeekly(); }
+  else ta.value=weeklyText(); }
 $("#closeWeek").onclick=()=>$("#weekModal").classList.remove("on");
 $("#copyWeek").onclick=async()=>{ const ta=$("#weekText"); try{ await navigator.clipboard.writeText(ta.value); }catch(e){ ta.select(); document.execCommand("copy"); } $("#copyWeek").textContent="Copied ✓"; setTimeout(()=>$("#copyWeek").textContent="Copy",1500); };
 
@@ -443,20 +445,23 @@ function updateSyncInfo(){ $("#syncInfo").textContent=state.lastSync?"Last synce
 function clampNum(n){ n=Number(n); return Number.isFinite(n)?Math.round(n):undefined; }
 function parseLooseJSON(s){ if(!s) return null; let t=String(s).trim().replace(/^```[a-z]*\s*/i,"").replace(/\s*```$/,""); const a=t.indexOf("{"),b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1); try{ return JSON.parse(t); }catch(e){ return null; } }
 function setPA(s,msg){ const p=$("#paPill"); if(!p) return; p.dataset.s=s; if(msg) p.title=msg; $("#paLabel").textContent={ready:"PA",thinking:"thinking…",error:"PA error"}[s]||"PA"; }
-async function callPA(action,extra){
-  const c=state.config; if(!c.proxyUrl||!c.appSecret) return null;
-  const payload=Object.assign({action,now:new Date().toISOString(),
-    tasks:state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket}))},extra||{});
-  const res=await fetch(c.proxyUrl,{method:"POST",headers:{"content-type":"application/json","x-app-secret":c.appSecret},body:JSON.stringify(payload)});
+const SYS_PRIORITIZE=`You are a personal assistant prioritizing ONE user's tasks (work + personal). Input is a JSON task list (id, text, due YYYY-MM-DD or null, important, createdAt, bucket). Return ONLY JSON, no prose, no fences: {"tasks":[{"id":"<id>","priority":<1-100>,"effortMins":<int>,"why":"<=8 words"}]}. Higher priority = do sooner. Weigh due-date proximity, importance, how long it has sat, and obvious dependencies. Be decisive and realistic about effort.`;
+const SYS_BRIEF=`You are a personal assistant giving ONE user a short daily briefing (work + personal). Input is a JSON task list. Return ONLY JSON, no prose, no fences: {"summary":"<2-3 sentences: what to do today and roughly how much time>","focus":[{"id":"<id>","action":"<=12 words","minutes":<int>}],"skip":["<id>"]}. Pick the 3-5 things that matter most today. Realistic about total time. Direct and encouraging.`;
+const SYS_WEEKLY=`You are drafting a brief weekly status update the user will paste into an email to their manager. Input is JSON of tasks they completed in the last 7 days. Write in their first-person voice: concise, confident, professional. Output ONLY the email body to paste — no subject, no greeting, no sign-off, no preamble. Prefer 3-6 tight bullets, grouping related items. Use only real items from the input; never invent. If the list is empty, write one honest line that little was logged.`;
+function paReady(){ return !!(state.config.proxyUrl&&state.config.appSecret); }
+function aiTaskPayload(){ return state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket})); }
+async function callPA(system,prompt,max){
+  const c=state.config; if(!paReady()) return null;
+  const res=await fetch(c.proxyUrl,{method:"POST",headers:{"content-type":"application/json","x-app-secret":c.appSecret},body:JSON.stringify({system,prompt,max_tokens:max||1024})});
   if(!res.ok) throw new Error("PA "+res.status); const data=await res.json(); if(data.error) throw new Error(data.error);
-  return parseLooseJSON(data.result);
+  return data.result||"";
 }
 let paTimer=null;
-function queuePrioritize(){ if(!state.config.proxyUrl||!state.config.appSecret) return; clearTimeout(paTimer); paTimer=setTimeout(runPrioritize,800); }
+function queuePrioritize(){ if(!paReady()) return; clearTimeout(paTimer); paTimer=setTimeout(runPrioritize,800); }
 async function runPrioritize(){
-  if(!state.config.proxyUrl||!state.config.appSecret||!navigator.onLine) return;
+  if(!paReady()||!navigator.onLine) return;
   setPA("thinking");
-  try{ const r=await callPA("prioritize",{});
+  try{ const r=parseLooseJSON(await callPA(SYS_PRIORITIZE,"Tasks:\n"+JSON.stringify(aiTaskPayload()),2048));
     if(r&&Array.isArray(r.tasks)){ const m={}; r.tasks.forEach(x=>m[x.id]=x);
       state.tasks.forEach(t=>{ const x=m[t.id]; if(x){ if(x.priority!=null)t.aiPriority=clampNum(x.priority); if(x.effortMins!=null)t.effortMins=clampNum(x.effortMins); if(x.why)t.why=String(x.why).trim(); } });
       saveTasks(); render(); }
@@ -464,14 +469,24 @@ async function runPrioritize(){
   }catch(e){ console.error(e); setPA("error",e.message); }
 }
 async function generateBrief(force){
-  if(!state.config.proxyUrl||!state.config.appSecret||!navigator.onLine) return;
+  if(!paReady()||!navigator.onLine) return;
   const today=localKey();
   if(!force&&state.brief&&state.brief.date===today) return;
   setPA("thinking");
-  try{ const r=await callPA("brief",{});
+  try{ const r=parseLooseJSON(await callPA(SYS_BRIEF,"Now: "+new Date()+"\nTasks:\n"+JSON.stringify(aiTaskPayload()),1024));
     if(r){ state.brief={date:today,summary:r.summary||"",focus:Array.isArray(r.focus)?r.focus:[],skip:r.skip||[]}; localStorage.setItem(K_BRIEF,JSON.stringify(state.brief)); render(); }
     setPA("ready");
   }catch(e){ console.error(e); setPA("error",e.message); }
+}
+async function generateWeekly(){
+  const since=Date.now()-7*DAY;
+  const done=state.tasks.filter(t=>t.done&&!t.deleted&&(t.completedAt||0)>=since).sort((a,b)=>b.completedAt-a.completedAt);
+  if(!paReady()||!navigator.onLine) return weeklyText(done);
+  setPA("thinking");
+  try{ const payload=done.map(t=>({text:t.text,day:localKey(t.completedAt)}));
+    const text=(await callPA(SYS_WEEKLY,"Completed in the last 7 days:\n"+JSON.stringify(payload),800)||"").trim();
+    setPA("ready"); return text||weeklyText(done);
+  }catch(e){ console.error(e); setPA("error",e.message); return weeklyText(done); }
 }
 
 /* sync (GitHub Gist, self-healing) */
