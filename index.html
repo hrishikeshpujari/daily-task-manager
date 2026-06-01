@@ -446,29 +446,27 @@ function mergeTasks(localArr, remoteArr){
   const m = new Map();
   remoteArr.forEach(t=>m.set(t.id,t));
   localArr.forEach(t=>{ const e=m.get(t.id); if(!e || (t.updatedAt||0)>=(e.updatedAt||0)) m.set(t.id,t); });
-  const cutoff = Date.now() - 30*DAY;
+  const cutoff = Date.now() - 365*DAY;  // keep tombstones long so deletes don't resurrect from a stale gist
   return [...m.values()].filter(t=>!(t.deleted && (t.updatedAt||0)<cutoff));
 }
-// Find this app's existing gist by its data filename, so a new device with only a
-// token (no gist id) joins the same dataset instead of silently creating a duplicate.
-async function findAppGist(){
+// Read EVERY gist that holds our data file (id, creation time, tasks) so sync can merge
+// across all of them and reconverge devices that drifted onto different gists.
+async function discoverAppGists(){
   const list = await gh("https://api.github.com/gists?per_page=100");
   const matches = (list || []).filter(g => g.files && g.files[GIST_FILE]);
-  if(!matches.length) return null;
-  if(matches.length === 1) return matches[0].id;
-  // More than one (e.g. a duplicate from an earlier setup): keep the one with the most tasks.
-  let best = matches[0].id, bestN = -1;
+  const out = [];
   for(const m of matches){
+    let tasks = [];
     try{
       const g = await gh("https://api.github.com/gists/"+m.id);
       const f = g.files[GIST_FILE];
       let c = f.content;
       if(f.truncated && f.raw_url) c = await (await fetch(f.raw_url)).text();
-      const n = (JSON.parse(c).tasks || []).filter(t=>!t.deleted).length;
-      if(n > bestN){ bestN = n; best = m.id; }
+      tasks = (JSON.parse(c).tasks) || [];
     }catch(e){}
+    out.push({ id: m.id, created: m.created_at || "", tasks });
   }
-  return best;
+  return out;
 }
 async function syncNow(){
   if(!state.config.token){ setSync("local"); return; }
@@ -476,32 +474,30 @@ async function syncNow(){
   if(syncing){ pending=true; return; }
   syncing=true; setSync("syncing");
   try{
-    // No gist id yet? Adopt an existing app gist before creating one, so every device converges.
-    if(!state.config.gistId){
-      const found = await findAppGist();
-      if(found){ state.config.gistId = found; saveConfig(); }
-    }
-    let remote=[];
-    if(state.config.gistId){
-      const g = await gh("https://api.github.com/gists/"+state.config.gistId);
-      const f = g.files && g.files[GIST_FILE];
-      if(f){
-        let c = f.content;
-        if(f.truncated && f.raw_url) c = await (await fetch(f.raw_url)).text();
-        try{ remote = JSON.parse(c).tasks || []; }catch(e){ remote=[]; }
-      }
-    }
-    state.tasks = mergeTasks(state.tasks, remote);
+    // Self-healing sync: read EVERY gist holding our data, merge them all together, and
+    // write the result back to one stable "home" gist (the oldest one). Devices that
+    // drifted onto different gists reconverge on their own — no manual Gist ID juggling.
+    const found = await discoverAppGists();
+    let merged = state.tasks;
+    for(const g of found) merged = mergeTasks(merged, g.tasks);
+    state.tasks = merged;
     saveTasks();
-    const content = JSON.stringify({v:1, tasks:state.tasks}, null, 2);
-    if(state.config.gistId){
-      await gh("https://api.github.com/gists/"+state.config.gistId,
+    let canonical = "";
+    if(found.length){
+      const sorted = found.slice().sort((a,b)=>
+        a.created<b.created ? -1 : a.created>b.created ? 1 : (a.id<b.id ? -1 : 1));
+      canonical = sorted[0].id;
+    }
+    const content = JSON.stringify({v:1, tasks:merged}, null, 2);
+    if(canonical){
+      await gh("https://api.github.com/gists/"+canonical,
         {method:"PATCH", body:JSON.stringify({files:{[GIST_FILE]:{content}}})});
     } else {
       const g = await gh("https://api.github.com/gists",
         {method:"POST", body:JSON.stringify({description:"Daily Task Manager data", public:false, files:{[GIST_FILE]:{content}}})});
-      state.config.gistId = g.id; saveConfig();
+      canonical = g.id;
     }
+    if(canonical !== state.config.gistId){ state.config.gistId = canonical; saveConfig(); }
     state.lastSync = Date.now(); setSync("synced"); render(); updateSyncInfo();
   }catch(err){
     console.error(err); setSync("error", err.message);

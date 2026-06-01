@@ -26,7 +26,7 @@ Built to be the **missing daily layer** between your brain-dump and your weekly 
 ### 2. Turn on cross-device sync (do this once per device)
 1. Create a token: **[github.com/settings/tokens/new?scopes=gist](https://github.com/settings/tokens/new?scopes=gist)** — give it **only the `gist` scope**, generate, and copy it.
 2. Open the app, tap the **sync pill** (top-right) → paste the token → **Save & sync**.
-3. The first device creates a private gist automatically. On every other device, **just paste the same token** (leave Gist ID blank) — the app finds that existing gist and joins it, so all your devices share one list. No need to copy IDs around.
+3. The first device creates a private gist automatically. On every other device, **just paste the same token** (leave Gist ID blank). Sync is self-healing: it reads every gist that holds your data, merges them, and writes back to one stable "home" gist — so even if devices ever land on separate gists, they reconverge on their own. You never touch a Gist ID.
 
 **Security:** the token is stored in that device's browser only (localStorage) and is sent **only to GitHub**. It's never committed to the repo. With the `gist` scope, the worst case if it leaks is access to your gists — nothing else. To revoke, delete the token on GitHub or hit **Disconnect** in the app.
 
