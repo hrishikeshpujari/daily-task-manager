@@ -163,7 +163,7 @@
     <h2>Cross-device sync</h2>
     <label>GitHub personal access token (gist scope)</label>
     <input type="password" id="tokenInput" placeholder="github_pat_… or ghp_…">
-    <label>Gist ID (optional — leave blank to create one automatically)</label>
+    <label>Gist ID (optional — leave blank; it finds or creates your gist automatically)</label>
     <input type="text" id="gistInput" placeholder="created on first sync">
     <div class="actions">
       <button class="btn-pri" id="saveSettings">Save &amp; sync</button>
@@ -449,12 +449,38 @@ function mergeTasks(localArr, remoteArr){
   const cutoff = Date.now() - 30*DAY;
   return [...m.values()].filter(t=>!(t.deleted && (t.updatedAt||0)<cutoff));
 }
+// Find this app's existing gist by its data filename, so a new device with only a
+// token (no gist id) joins the same dataset instead of silently creating a duplicate.
+async function findAppGist(){
+  const list = await gh("https://api.github.com/gists?per_page=100");
+  const matches = (list || []).filter(g => g.files && g.files[GIST_FILE]);
+  if(!matches.length) return null;
+  if(matches.length === 1) return matches[0].id;
+  // More than one (e.g. a duplicate from an earlier setup): keep the one with the most tasks.
+  let best = matches[0].id, bestN = -1;
+  for(const m of matches){
+    try{
+      const g = await gh("https://api.github.com/gists/"+m.id);
+      const f = g.files[GIST_FILE];
+      let c = f.content;
+      if(f.truncated && f.raw_url) c = await (await fetch(f.raw_url)).text();
+      const n = (JSON.parse(c).tasks || []).filter(t=>!t.deleted).length;
+      if(n > bestN){ bestN = n; best = m.id; }
+    }catch(e){}
+  }
+  return best;
+}
 async function syncNow(){
   if(!state.config.token){ setSync("local"); return; }
   if(!navigator.onLine){ setSync("offline"); return; }
   if(syncing){ pending=true; return; }
   syncing=true; setSync("syncing");
   try{
+    // No gist id yet? Adopt an existing app gist before creating one, so every device converges.
+    if(!state.config.gistId){
+      const found = await findAppGist();
+      if(found){ state.config.gistId = found; saveConfig(); }
+    }
     let remote=[];
     if(state.config.gistId){
       const g = await gh("https://api.github.com/gists/"+state.config.gistId);

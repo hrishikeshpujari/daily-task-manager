@@ -1,5 +1,5 @@
 /* Daily Task Manager service worker — caches the app shell for instant + offline load. */
-const CACHE = "dtm-v1";
+const CACHE = "dtm-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", e => {
