@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tasks">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg">
+<title>Daily Task Manager</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#272c38;
+    --text:#e8eaf0; --dim:#9aa3b2; --accent:#6c8cff; --accent2:#8a7bff;
+    --good:#3ecf8e; --warn:#ffb454; --bad:#ff6b6b; --star:#ffd44d;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font:16px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-text-size-adjust:100%;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .wrap{max-width:680px;margin:0 auto;padding:14px 14px 80px;}
+
+  header{display:flex;align-items:center;gap:10px;margin:6px 2px 14px}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.2px;flex:1}
+  .donebadge{background:var(--panel2);border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;font-size:13px;color:var(--dim);white-space:nowrap}
+  .donebadge b{color:var(--good);font-size:15px}
+  .iconbtn{background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    width:40px;height:40px;border-radius:10px;font-size:17px;cursor:pointer;line-height:1}
+  .iconbtn:active{transform:scale(.96)}
+
+  /* sync pill */
+  .sync{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dim);
+    padding:6px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);cursor:pointer}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+  .sync[data-s="synced"] .dot{background:var(--good)}
+  .sync[data-s="syncing"] .dot{background:var(--accent);animation:pulse 1s infinite}
+  .sync[data-s="offline"] .dot{background:var(--warn)}
+  .sync[data-s="error"] .dot{background:var(--bad)}
+  .sync[data-s="local"] .dot{background:var(--dim)}
+  @keyframes pulse{50%{opacity:.3}}
+
+  /* capture */
+  .capture{display:flex;gap:8px;margin-bottom:14px}
+  .capture input{
+    flex:1;background:var(--panel);border:1.5px solid var(--line);color:var(--text);
+    font-size:17px;padding:16px 16px;border-radius:var(--radius);outline:none;
+  }
+  .capture input:focus{border-color:var(--accent)}
+  .capture button{
+    background:var(--accent);border:none;color:#0b0e16;font-weight:700;font-size:16px;
+    padding:0 20px;border-radius:var(--radius);cursor:pointer
+  }
+  .capture button:active{transform:scale(.97)}
+
+  /* tabs */
+  .tabs{display:flex;gap:6px;background:var(--panel);padding:5px;border-radius:12px;margin-bottom:14px}
+  .tabs button{flex:1;background:none;border:none;color:var(--dim);font-size:14px;font-weight:600;
+    padding:10px;border-radius:9px;cursor:pointer}
+  .tabs button.on{background:var(--panel2);color:var(--text)}
+  .tabs .count{font-size:11px;opacity:.7;margin-left:4px}
+
+  .banner{background:var(--panel2);border:1px dashed var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:14px;font-size:13px;color:var(--dim);display:flex;gap:10px;align-items:center}
+  .banner button{margin-left:auto;background:var(--accent);border:none;color:#0b0e16;font-weight:700;
+    padding:8px 12px;border-radius:9px;cursor:pointer;white-space:nowrap}
+
+  /* task rows */
+  ul.list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .task{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .task.stale{border-color:#5a4a2a}
+  .row{display:flex;align-items:flex-start;gap:12px;padding:14px}
+  .check{flex:none;width:26px;height:26px;border-radius:50%;border:2px solid var(--dim);
+    background:none;cursor:pointer;margin:1px 0;position:relative}
+  .check:active{transform:scale(.9)}
+  .task.done .check{background:var(--good);border-color:var(--good)}
+  .task.done .check::after{content:"✓";position:absolute;inset:0;color:#0b0e16;font-size:15px;
+    display:flex;align-items:center;justify-content:center;font-weight:900}
+  .body{flex:1;min-width:0;cursor:pointer}
+  .txt{word-break:break-word}
+  .task.done .txt{text-decoration:line-through;color:var(--dim)}
+  .rank{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;
+    background:var(--accent);color:#0b0e16;border-radius:6px;font-size:12px;font-weight:800;margin-right:8px;vertical-align:1px}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .pill{font-size:11.5px;padding:3px 8px;border-radius:999px;background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
+  .pill.due-over{color:var(--bad);border-color:#5a2a2a}
+  .pill.due-today{color:var(--warn);border-color:#5a4a2a}
+  .pill.due-soon{color:var(--accent)}
+  .pill.stale{color:var(--warn);border-color:#5a4a2a}
+  .pill.imp{color:var(--star);border-color:#5a4f2a}
+  .star{flex:none;background:none;border:none;font-size:20px;cursor:pointer;color:#3a3f4c;padding:0 2px}
+  .star.on{color:var(--star)}
+
+  /* expanded controls */
+  .detail{border-top:1px solid var(--line);padding:12px 14px;display:none;gap:10px;flex-direction:column;background:var(--panel2)}
+  .task.open .detail{display:flex}
+  .detail .editline{display:flex;gap:8px}
+  .detail input[type=text]{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--text);
+    padding:10px;border-radius:9px;font-size:15px}
+  .detail input[type=date]{background:var(--bg);border:1px solid var(--line);color:var(--text);
+    padding:9px;border-radius:9px;font-size:14px;color-scheme:dark}
+  .detail .ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .chipbtn{background:var(--bg);border:1px solid var(--line);color:var(--text);font-size:13px;
+    padding:8px 12px;border-radius:9px;cursor:pointer}
+  .chipbtn.del{color:var(--bad);border-color:#4a2a2a;margin-left:auto}
+  .empty{color:var(--dim);text-align:center;padding:40px 10px;font-size:14px}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal.on{display:flex}
+  .sheet{background:var(--panel);border:1px solid var(--line);border-radius:16px;width:100%;max-width:480px;padding:18px;max-height:90vh;overflow:auto}
+  .sheet h2{margin:0 0 12px;font-size:16px}
+  .sheet label{display:block;font-size:12px;color:var(--dim);margin:12px 0 5px}
+  .sheet input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:11px;border-radius:9px;font-size:14px}
+  .sheet textarea{width:100%;height:170px;background:var(--bg);border:1px solid var(--line);color:var(--text);padding:12px;border-radius:9px;font-size:14px;resize:vertical;font-family:inherit}
+  .sheet .actions{display:flex;gap:8px;margin-top:16px}
+  .sheet .actions button{flex:1;padding:12px;border-radius:10px;border:none;font-weight:700;font-size:14px;cursor:pointer}
+  .btn-pri{background:var(--accent);color:#0b0e16}
+  .btn-sec{background:var(--panel2);color:var(--text);border:1px solid var(--line)!important}
+  .btn-danger{background:none;color:var(--bad);border:1px solid #4a2a2a!important;flex:none!important;padding:12px 14px!important}
+  .help{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.5}
+  .help a{color:var(--accent)}
+  .weekbtn{width:100%;margin-top:14px;background:var(--panel);border:1px solid var(--line);color:var(--text);
+    padding:14px;border-radius:var(--radius);font-size:15px;font-weight:600;cursor:pointer}
+  .weekbtn:active{transform:scale(.99)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Today</h1>
+    <span class="donebadge">Done today <b id="doneToday">0</b></span>
+    <span class="sync" id="syncPill" data-s="local" title="Sync status — tap for settings"><span class="dot"></span><span id="syncLabel">Local</span></span>
+  </header>
+
+  <form class="capture" id="captureForm" autocomplete="off">
+    <input id="captureInput" placeholder="Type a task, press Enter…" autofocus enterkeyhint="done">
+    <button type="submit">Add</button>
+  </form>
+
+  <div class="tabs" id="tabs">
+    <button data-view="today" class="on">Today <span class="count" id="c-today"></span></button>
+    <button data-view="week">This Week <span class="count" id="c-week"></span></button>
+    <button data-view="someday">Someday <span class="count" id="c-someday"></span></button>
+  </div>
+
+  <div id="banner"></div>
+  <ul class="list" id="list"></ul>
+  <button class="weekbtn" id="weekBtn">📧 Generate weekly email</button>
+</div>
+
+<!-- Settings modal -->
+<div class="modal" id="settingsModal">
+  <div class="sheet">
+    <h2>Cross-device sync</h2>
+    <label>GitHub personal access token (gist scope)</label>
+    <input type="password" id="tokenInput" placeholder="github_pat_… or ghp_…">
+    <label>Gist ID (optional — leave blank to create one automatically)</label>
+    <input type="text" id="gistInput" placeholder="created on first sync">
+    <div class="actions">
+      <button class="btn-pri" id="saveSettings">Save &amp; sync</button>
+      <button class="btn-sec" id="closeSettings">Close</button>
+    </div>
+    <button class="btn-danger" id="disconnect" style="width:100%;margin-top:8px;border-radius:10px">Disconnect &amp; clear token</button>
+    <p class="help" id="syncInfo"></p>
+    <p class="help">
+      Create a token at <a href="https://github.com/settings/tokens/new?scopes=gist&description=Daily%20Task%20Manager" target="_blank" rel="noopener">github.com/settings/tokens</a>
+      with <b>only the “gist” scope</b>. It's stored on this device only and never leaves your browser except to call GitHub. Repeat once per device.
+    </p>
+  </div>
+</div>
+
+<!-- Weekly email modal -->
+<div class="modal" id="weekModal">
+  <div class="sheet">
+    <h2>Weekly summary — last 7 days</h2>
+    <textarea id="weekText" spellcheck="false"></textarea>
+    <div class="actions">
+      <button class="btn-pri" id="copyWeek">Copy to clipboard</button>
+      <button class="btn-sec" id="closeWeek">Close</button>
+    </div>
+    <p class="help">Paste straight into your Monday manager email. Edit freely before copying.</p>
+  </div>
+</div>
+
+<script>
+"use strict";
+const GIST_FILE = "daily-tasks.json";
+const K_TASKS = "dtm.tasks", K_CFG = "dtm.config";
+const DAY = 86400000;
+
+let state = {
+  tasks: load(K_TASKS, []),
+  config: load(K_CFG, { token:"", gistId:"" }),
+  view: "today",
+  openId: null,
+  lastSync: 0
+};
+
+/* ---------- storage ---------- */
+function load(k, def){ try{ return JSON.parse(localStorage.getItem(k)) ?? def; }catch(e){ return def; } }
+function saveTasks(){ localStorage.setItem(K_TASKS, JSON.stringify(state.tasks)); }
+function saveConfig(){ localStorage.setItem(K_CFG, JSON.stringify(state.config)); }
+function uid(){ return "t_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* ---------- model ---------- */
+function addTask(text){
+  text = text.trim(); if(!text) return;
+  const now = Date.now();
+  state.tasks.push({ id:uid(), text, createdAt:now, updatedAt:now, due:null, important:false,
+                     done:false, completedAt:null, bucket:"active", deleted:false });
+  touch();
+}
+function mutate(id, fn){
+  const t = state.tasks.find(x=>x.id===id); if(!t) return;
+  fn(t); t.updatedAt = Date.now(); touch();
+}
+function touch(){ saveTasks(); render(); queueSync(); }
+
+function dueDays(t){
+  if(!t.due) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(t.due + "T00:00:00");
+  return Math.round((d - today) / DAY);
+}
+function staleDays(t){ return Math.floor((Date.now() - t.updatedAt) / DAY); }
+
+// priority = due proximity + importance + staleness
+function score(t){
+  let s = 0;
+  const dd = dueDays(t);
+  if(dd !== null){
+    if(dd < 0)       s += 100 + Math.min(-dd,30)*5;  // overdue climbs
+    else if(dd===0)  s += 80;
+    else if(dd===1)  s += 60;
+    else if(dd<=3)   s += 40;
+    else if(dd<=7)   s += 20;
+    else             s += 5;
+  }
+  if(t.important) s += 50;
+  s += Math.min(staleDays(t),20) * 3;  // staleness up to +60
+  return s;
+}
+const isStale = t => staleDays(t) >= 4;
+function isToday(ts){ if(!ts) return false; return new Date(ts).toDateString() === new Date().toDateString(); }
+
+function activeOpen(){ return state.tasks.filter(t=>!t.deleted && !t.done && t.bucket==="active").sort((a,b)=>score(b)-score(a) || a.createdAt-b.createdAt); }
+function somedayList(){ return state.tasks.filter(t=>!t.deleted && !t.done && t.bucket==="someday").sort((a,b)=>b.updatedAt-a.updatedAt); }
+function doneTodayList(){ return state.tasks.filter(t=>!t.deleted && t.done && isToday(t.completedAt)).sort((a,b)=>b.completedAt-a.completedAt); }
+
+/* ---------- render ---------- */
+const $ = s => document.querySelector(s);
+const listEl = $("#list");
+
+function dueLabel(t){
+  const dd = dueDays(t); if(dd===null) return null;
+  let cls="due-soon", txt;
+  if(dd<0){ cls="due-over"; txt = "overdue " + (-dd) + "d"; }
+  else if(dd===0){ cls="due-today"; txt="due today"; }
+  else if(dd===1){ txt="due tomorrow"; }
+  else if(dd<=7){ txt="due in " + dd + "d"; }
+  else { cls="due-soon"; txt = "due " + t.due.slice(5); }
+  return {cls,txt};
+}
+
+function taskHTML(t, rank){
+  const open = state.openId===t.id ? " open":"";
+  const stale = (!t.done && isStale(t)) ? " stale":"";
+  const done = t.done ? " done":"";
+  const meta = [];
+  const dl = dueLabel(t);
+  if(dl) meta.push(`<span class="pill ${dl.cls}">${dl.txt}</span>`);
+  if(!t.done && isStale(t)) meta.push(`<span class="pill stale">🕓 ${staleDays(t)}d untouched</span>`);
+  if(t.important) meta.push(`<span class="pill imp">★ important</span>`);
+  const rankBadge = (rank && !t.done) ? `<span class="rank">${rank}</span>` : "";
+  const moveLabel = t.bucket==="active" ? "→ Someday" : "↑ Make active";
+  return `<li class="task${done}${stale}${open}" data-id="${t.id}">
+    <div class="row">
+      <button class="check" data-act="done" aria-label="Toggle done"></button>
+      <div class="body" data-act="open">
+        <div class="txt">${rankBadge}${esc(t.text)}</div>
+        ${meta.length ? `<div class="meta">${meta.join("")}</div>`:""}
+      </div>
+      <button class="star${t.important?" on":""}" data-act="star" aria-label="Important">${t.important?"★":"☆"}</button>
+    </div>
+    <div class="detail">
+      <div class="editline">
+        <input type="text" data-act="edit" value="${esc(t.text)}" placeholder="Edit task">
+        <input type="date" data-act="due" value="${t.due||""}">
+      </div>
+      <div class="ctrls">
+        <button class="chipbtn" data-act="move">${moveLabel}</button>
+        <button class="chipbtn del" data-act="del">🗑 Delete</button>
+      </div>
+    </div>
+  </li>`;
+}
+function esc(s){ return s.replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function render(){
+  // header counts
+  $("#doneToday").textContent = doneTodayList().length;
+  const act = activeOpen(), some = somedayList();
+  $("#c-today").textContent = act.length ? "("+Math.min(act.length,5)+")" : "";
+  $("#c-week").textContent = act.length ? "("+act.length+")" : "";
+  $("#c-someday").textContent = some.length ? "("+some.length+")" : "";
+  document.querySelector("header h1").textContent = ({today:"Today",week:"This Week",someday:"Someday"})[state.view];
+
+  // banner (sync setup nudge)
+  const banner = $("#banner");
+  if(!state.config.token){
+    banner.innerHTML = `<span>📵 Local only — this device won't sync. Add a token to sync across phone + desktop.</span><button id="setupBtn">Set up sync</button>`;
+    $("#setupBtn").onclick = openSettings;
+  } else banner.innerHTML = "";
+
+  let rows = "", items = [];
+  if(state.view==="today"){
+    items = act.slice(0,5);
+    rows = items.map((t,i)=>taskHTML(t,i+1)).join("");
+    const dt = doneTodayList();
+    if(dt.length) rows += dt.map(t=>taskHTML(t,null)).join("");
+    if(!items.length && !dt.length) rows = `<div class="empty">Nothing yet. Capture your first task above 👆</div>`;
+    else if(act.length>5) rows += `<div class="empty">+${act.length-5} more in This Week</div>`;
+  } else if(state.view==="week"){
+    items = act;
+    rows = items.length ? items.map((t,i)=>taskHTML(t,i+1)).join("") : `<div class="empty">No active tasks. 🎉</div>`;
+  } else {
+    items = some;
+    rows = items.length ? items.map(t=>taskHTML(t,null)).join("") : `<div class="empty">Backlog is empty.</div>`;
+  }
+  listEl.innerHTML = rows;
+}
+
+/* ---------- events (delegated) ---------- */
+listEl.addEventListener("click", e=>{
+  const li = e.target.closest(".task"); if(!li) return;
+  const id = li.dataset.id;
+  const act = e.target.closest("[data-act]")?.dataset.act;
+  if(act==="done"){
+    mutate(id, t=>{ t.done=!t.done; t.completedAt = t.done?Date.now():null; if(t.done) state.openId=null; });
+  } else if(act==="star"){
+    mutate(id, t=>t.important=!t.important);
+  } else if(act==="open"){
+    state.openId = state.openId===id ? null : id; render();
+  } else if(act==="move"){
+    mutate(id, t=>t.bucket = t.bucket==="active"?"someday":"active");
+  } else if(act==="del"){
+    mutate(id, t=>{ t.deleted=true; }); state.openId=null;
+  }
+});
+listEl.addEventListener("change", e=>{
+  const id = e.target.closest(".task")?.dataset.id; if(!id) return;
+  if(e.target.dataset.act==="due") mutate(id, t=>t.due = e.target.value || null);
+});
+listEl.addEventListener("keydown", e=>{
+  if(e.target.dataset.act==="edit" && e.key==="Enter"){ e.preventDefault(); e.target.blur(); }
+});
+listEl.addEventListener("blur", e=>{
+  if(e.target.dataset.act==="edit"){
+    const id = e.target.closest(".task")?.dataset.id;
+    const v = e.target.value.trim();
+    if(id && v) mutate(id, t=>t.text=v);
+  }
+}, true);
+
+// capture
+$("#captureForm").addEventListener("submit", e=>{
+  e.preventDefault();
+  const inp = $("#captureInput");
+  addTask(inp.value); inp.value=""; inp.focus();
+});
+// tabs
+$("#tabs").addEventListener("click", e=>{
+  const b = e.target.closest("button[data-view]"); if(!b) return;
+  state.view = b.dataset.view; state.openId=null;
+  document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on", x===b));
+  render();
+});
+
+/* ---------- weekly email ---------- */
+function weeklyText(){
+  const since = Date.now() - 7*DAY;
+  const done = state.tasks.filter(t=>t.done && !t.deleted && (t.completedAt||0)>=since)
+                          .sort((a,b)=>b.completedAt-a.completedAt);
+  const head = `Last week I completed ${done.length} item${done.length===1?"":"s"}:`;
+  return head + "\n" + (done.map(t=>"• "+t.text).join("\n") || "(nothing logged yet)");
+}
+$("#weekBtn").onclick = ()=>{ $("#weekText").value = weeklyText(); $("#weekModal").classList.add("on"); };
+$("#closeWeek").onclick = ()=> $("#weekModal").classList.remove("on");
+$("#copyWeek").onclick = async ()=>{
+  const ta = $("#weekText");
+  try{ await navigator.clipboard.writeText(ta.value); $("#copyWeek").textContent="Copied ✓"; }
+  catch(e){ ta.select(); document.execCommand("copy"); $("#copyWeek").textContent="Copied ✓"; }
+  setTimeout(()=>$("#copyWeek").textContent="Copy to clipboard", 1500);
+};
+
+/* ---------- settings ---------- */
+function openSettings(){
+  $("#tokenInput").value = state.config.token || "";
+  $("#gistInput").value = state.config.gistId || "";
+  updateSyncInfo();
+  $("#settingsModal").classList.add("on");
+}
+$("#syncPill").onclick = openSettings;
+$("#closeSettings").onclick = ()=> $("#settingsModal").classList.remove("on");
+$("#saveSettings").onclick = ()=>{
+  state.config.token = $("#tokenInput").value.trim();
+  state.config.gistId = $("#gistInput").value.trim();
+  saveConfig();
+  $("#settingsModal").classList.remove("on");
+  render(); syncNow();
+};
+$("#disconnect").onclick = ()=>{
+  state.config = { token:"", gistId:"" }; saveConfig();
+  setSync("local"); $("#settingsModal").classList.remove("on"); render();
+};
+function updateSyncInfo(){
+  const el = $("#syncInfo");
+  el.textContent = state.lastSync ? "Last synced " + new Date(state.lastSync).toLocaleString() : "Not synced yet.";
+}
+
+/* ---------- sync (GitHub Gist) ---------- */
+let syncTimer=null, syncing=false, pending=false;
+function queueSync(){ clearTimeout(syncTimer); syncTimer=setTimeout(syncNow, 1200); }
+function setSync(s, msg){
+  const p = $("#syncPill"); p.dataset.s = s;
+  $("#syncLabel").textContent = {synced:"Synced",syncing:"Syncing…",offline:"Offline",error:"Sync error",local:"Local"}[s] || s;
+  if(msg) p.title = msg;
+}
+async function gh(url, opts={}){
+  const headers = Object.assign({Accept:"application/vnd.github+json"}, opts.headers||{});
+  if(state.config.token) headers.Authorization = "Bearer " + state.config.token;
+  const res = await fetch(url, Object.assign({}, opts, {headers}));
+  if(!res.ok) throw new Error("GitHub " + res.status + ": " + (await res.text()).slice(0,160));
+  return res.json();
+}
+function mergeTasks(localArr, remoteArr){
+  const m = new Map();
+  remoteArr.forEach(t=>m.set(t.id,t));
+  localArr.forEach(t=>{ const e=m.get(t.id); if(!e || (t.updatedAt||0)>=(e.updatedAt||0)) m.set(t.id,t); });
+  const cutoff = Date.now() - 30*DAY;
+  return [...m.values()].filter(t=>!(t.deleted && (t.updatedAt||0)<cutoff));
+}
+async function syncNow(){
+  if(!state.config.token){ setSync("local"); return; }
+  if(!navigator.onLine){ setSync("offline"); return; }
+  if(syncing){ pending=true; return; }
+  syncing=true; setSync("syncing");
+  try{
+    let remote=[];
+    if(state.config.gistId){
+      const g = await gh("https://api.github.com/gists/"+state.config.gistId);
+      const f = g.files && g.files[GIST_FILE];
+      if(f){
+        let c = f.content;
+        if(f.truncated && f.raw_url) c = await (await fetch(f.raw_url)).text();
+        try{ remote = JSON.parse(c).tasks || []; }catch(e){ remote=[]; }
+      }
+    }
+    state.tasks = mergeTasks(state.tasks, remote);
+    saveTasks();
+    const content = JSON.stringify({v:1, tasks:state.tasks}, null, 2);
+    if(state.config.gistId){
+      await gh("https://api.github.com/gists/"+state.config.gistId,
+        {method:"PATCH", body:JSON.stringify({files:{[GIST_FILE]:{content}}})});
+    } else {
+      const g = await gh("https://api.github.com/gists",
+        {method:"POST", body:JSON.stringify({description:"Daily Task Manager data", public:false, files:{[GIST_FILE]:{content}}})});
+      state.config.gistId = g.id; saveConfig();
+    }
+    state.lastSync = Date.now(); setSync("synced"); render(); updateSyncInfo();
+  }catch(err){
+    console.error(err); setSync("error", err.message);
+  }finally{
+    syncing=false;
+    if(pending){ pending=false; queueSync(); }
+  }
+}
+
+/* ---------- lifecycle ---------- */
+addEventListener("online", syncNow);
+addEventListener("offline", ()=>setSync("offline"));
+addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") syncNow(); });
+addEventListener("focus", ()=> $("#captureInput") && $("#captureInput").focus());
+
+if("serviceWorker" in navigator){
+  addEventListener("load", ()=> navigator.serviceWorker.register("sw.js").catch(console.error));
+}
+
+render();
+if(state.config.token) syncNow(); else setSync("local");
+$("#captureInput").focus();
+</script>
+</body>
+</html>
