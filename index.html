@@ -247,13 +247,13 @@
 <!-- Weekly email -->
 <div class="modal" id="weekModal">
   <div class="sheet">
-    <h2>Weekly summary — last 7 days</h2>
+    <h2>Weekly update</h2>
     <textarea id="weekText" spellcheck="false"></textarea>
     <div class="actions">
       <button class="btn-pri" id="copyWeek">Copy</button>
       <button class="btn-sec" id="closeWeek">Close</button>
     </div>
-    <p class="help">Paste into your Monday manager email. Edit before copying.</p>
+    <p class="help">Covers what you finished this week + what's in progress. Paste into your Monday manager email; edit before copying.</p>
   </div>
 </div>
 
@@ -425,8 +425,12 @@ $("#captureForm").addEventListener("submit",e=>{ e.preventDefault(); const i=$("
 $("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(!b) return; state.view=b.dataset.view; state.openId=null; document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b)); render(); });
 
 /* weekly email */
-function weeklyText(done){ done=done||state.tasks.filter(t=>t.done&&!t.deleted&&(t.completedAt||0)>=Date.now()-7*DAY).sort((a,b)=>b.completedAt-a.completedAt);
-  return `Last week I completed ${done.length} item${done.length===1?"":"s"}:\n`+(done.map(t=>"• "+t.text).join("\n")||"(nothing logged yet)"); }
+function weeklyText(done,active){
+  done=done||state.tasks.filter(t=>t.done&&!t.deleted&&(t.completedAt||0)>=Date.now()-7*DAY).sort((a,b)=>b.completedAt-a.completedAt);
+  active=active||state.tasks.filter(t=>!t.deleted&&!t.done&&t.bucket==="active").sort((a,b)=>effScore(b)-effScore(a)).slice(0,12);
+  const d=`Completed this week (${done.length}):\n`+(done.map(t=>"• "+t.text).join("\n")||"• (nothing logged)");
+  const a=`\n\nIn progress / next:\n`+(active.map(t=>"• "+t.text).join("\n")||"• (nothing active)");
+  return d+a; }
 async function openWeek(){ const ta=$("#weekText"); $("#weekModal").classList.add("on");
   if(paReady()){ ta.value="✨ Drafting your weekly summary…"; ta.value=await generateWeekly(); }
   else ta.value=weeklyText(); }
@@ -447,7 +451,7 @@ function parseLooseJSON(s){ if(!s) return null; let t=String(s).trim().replace(/
 function setPA(s,msg){ const p=$("#paPill"); if(!p) return; p.dataset.s=s; if(msg) p.title=msg; $("#paLabel").textContent={ready:"PA",thinking:"thinking…",error:"PA error"}[s]||"PA"; }
 const SYS_PRIORITIZE=`You are a personal assistant prioritizing ONE user's tasks (work + personal). Input is a JSON task list (id, text, due YYYY-MM-DD or null, important, createdAt, bucket). Return ONLY JSON, no prose, no fences: {"tasks":[{"id":"<id>","priority":<1-100>,"effortMins":<int>,"why":"<=8 words"}]}. Higher priority = do sooner. Weigh due-date proximity, importance, how long it has sat, and obvious dependencies. Be decisive and realistic about effort.`;
 const SYS_BRIEF=`You are a personal assistant giving ONE user a short daily briefing (work + personal). Input is a JSON task list. Return ONLY JSON, no prose, no fences: {"summary":"<2-3 sentences: what to do today and roughly how much time>","focus":[{"id":"<id>","action":"<=12 words","minutes":<int>}],"skip":["<id>"]}. Pick the 3-5 things that matter most today. Realistic about total time. Direct and encouraging.`;
-const SYS_WEEKLY=`You are drafting a brief weekly status update the user will paste into an email to their manager. Input is JSON of tasks they completed in the last 7 days. Write in their first-person voice: concise, confident, professional. Output ONLY the email body to paste — no subject, no greeting, no sign-off, no preamble. Prefer 3-6 tight bullets, grouping related items. Use only real items from the input; never invent. If the list is empty, write one honest line that little was logged.`;
+const SYS_WEEKLY=`You are drafting a brief weekly status update the user will paste into an email to their manager. Input is JSON with "completed" (tasks finished in the last 7 days) and "inProgress" (current open tasks, highest priority first). Write in the user's first-person voice: concise, confident, professional. Output ONLY the email body to paste — no subject, no greeting, no sign-off, no preamble. Use two short labeled sections: what got done this week (from completed), and current focus / what's next (from inProgress — lead with important or due-soon items). Tight bullets, group related items, only real items from the input, never invent. If a section is empty, say so in one short honest line.`;
 function paReady(){ return !!(state.config.proxyUrl&&state.config.appSecret); }
 function aiTaskPayload(){ return state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket})); }
 async function callPA(system,prompt,max){
@@ -481,12 +485,13 @@ async function generateBrief(force){
 async function generateWeekly(){
   const since=Date.now()-7*DAY;
   const done=state.tasks.filter(t=>t.done&&!t.deleted&&(t.completedAt||0)>=since).sort((a,b)=>b.completedAt-a.completedAt);
-  if(!paReady()||!navigator.onLine) return weeklyText(done);
+  const active=state.tasks.filter(t=>!t.deleted&&!t.done&&t.bucket==="active").sort((a,b)=>effScore(b)-effScore(a)).slice(0,12);
+  if(!paReady()||!navigator.onLine) return weeklyText(done,active);
   setPA("thinking");
-  try{ const payload=done.map(t=>({text:t.text,day:localKey(t.completedAt)}));
-    const text=(await callPA(SYS_WEEKLY,"Completed in the last 7 days:\n"+JSON.stringify(payload),800)||"").trim();
-    setPA("ready"); return text||weeklyText(done);
-  }catch(e){ console.error(e); setPA("error",e.message); return weeklyText(done); }
+  try{ const payload={completed:done.map(t=>({text:t.text,day:localKey(t.completedAt)})),inProgress:active.map(t=>({text:t.text,due:t.due,important:t.important}))};
+    const text=(await callPA(SYS_WEEKLY,"This week's data:\n"+JSON.stringify(payload),900)||"").trim();
+    setPA("ready"); return text||weeklyText(done,active);
+  }catch(e){ console.error(e); setPA("error",e.message); return weeklyText(done,active); }
 }
 
 /* sync (GitHub Gist, self-healing) */
