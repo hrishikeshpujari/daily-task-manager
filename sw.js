@@ -1,5 +1,7 @@
-/* Daily Task Manager service worker — caches the app shell for instant + offline load. */
-const CACHE = "dtm-v6";
+/* Daily Task Manager service worker.
+   Navigations are NETWORK-FIRST (new versions land on a normal reopen; cache only as
+   offline fallback). Static assets are cache-first with a background refresh. */
+const CACHE = "dtm-v7";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", e => {
@@ -15,18 +17,33 @@ self.addEventListener("activate", e => {
 
 self.addEventListener("fetch", e => {
   const url = new URL(e.request.url);
-  // Never cache the GitHub API or raw gist content — always go to network so sync data is fresh.
-  if (url.hostname === "api.github.com" || url.hostname === "gist.githubusercontent.com") return;
+  // Never intercept the GitHub API, raw gist content, or the PA proxy.
+  if (url.hostname === "api.github.com" || url.hostname === "gist.githubusercontent.com" ||
+      url.hostname.endsWith(".workers.dev")) return;
   if (e.request.method !== "GET") return;
 
-  // Cache-first for the app shell, with network fallback; navigations fall back to index.html offline.
-  e.respondWith(
-    caches.match(e.request).then(cached =>
-      cached || fetch(e.request).then(res => {
+  if (e.request.mode === "navigate" || e.request.destination === "document") {
+    e.respondWith(
+      fetch(e.request).then(res => {
         const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy));
+        caches.open(CACHE).then(c => { c.put(e.request, copy); });
         return res;
-      }).catch(() => caches.match("./index.html"))
-    )
+      }).catch(() =>
+        caches.match(e.request).then(m => m || caches.match("./index.html"))
+      )
+    );
+    return;
+  }
+
+  // Assets: serve cached immediately, refresh the cache in the background.
+  e.respondWith(
+    caches.match(e.request).then(cached => {
+      const refresh = fetch(e.request).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => { c.put(e.request, copy); });
+        return res;
+      }).catch(() => cached);
+      return cached || refresh;
+    })
   );
 });

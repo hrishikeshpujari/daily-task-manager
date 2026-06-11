@@ -185,6 +185,28 @@
   .btn-sec{background:var(--panel2);color:var(--text);border:1px solid var(--line2)!important}
   .help{font-size:12px;color:var(--faint);margin-top:10px;line-height:1.55}
   .help a{color:var(--accent)}
+
+  /* toast (undo / notices) */
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel3);
+    border:1px solid var(--line2);color:var(--text);padding:11px 15px;border-radius:12px;display:flex;gap:14px;
+    align-items:center;font-size:14px;z-index:90;box-shadow:var(--shadow);animation:rise .2s ease;max-width:92vw}
+  .toast button{background:none;border:none;color:var(--accent);font-weight:700;font-size:14px;cursor:pointer;padding:2px 4px;white-space:nowrap}
+
+  /* day wrap-up */
+  .wrapup{background:linear-gradient(180deg,#241d14,#17192280);border:1px solid #43381f;border-radius:var(--r);
+    padding:14px 16px;margin-bottom:14px;box-shadow:var(--shadow)}
+  .wrapup .bh{display:flex;align-items:center;gap:8px;margin-bottom:9px}
+  .wrapup .bh b{font-size:14px;color:var(--warn);font-weight:680;flex:1;letter-spacing:.2px}
+  .wrapup .bh .mini{font-size:11px;background:none;border:1px solid var(--line2);color:var(--dim);padding:5px 9px;border-radius:8px;cursor:pointer}
+  .wrapup .wq{font-size:13.5px;color:var(--dim);margin-bottom:9px}
+  .wchips{display:flex;flex-wrap:wrap;gap:7px}
+  .wchip{background:var(--panel2);border:1px solid var(--line2);color:var(--text);font-size:13px;padding:8px 13px;border-radius:999px;cursor:pointer;text-align:left;transition:.12s}
+  .wchip:active{transform:scale(.96)}
+  .wsel{font-size:14px;color:var(--text)}
+
+  /* today's ONE thing */
+  .task.one{border-color:#54481f}
+  .rank.one{background:linear-gradient(180deg,var(--star),#dfb13b);min-width:auto;padding:0 8px}
 </style>
 </head>
 <body>
@@ -198,7 +220,7 @@
   </header>
 
   <form class="capture" id="captureForm" autocomplete="off">
-    <input id="captureInput" placeholder="What needs doing? Type & press Enter…" autofocus enterkeyhint="done">
+    <input id="captureInput" placeholder="What needs doing? Type & press Enter…" enterkeyhint="done">
     <button type="submit" aria-label="Add">＋</button>
   </form>
 
@@ -292,7 +314,24 @@ function score(t){ // rule-based fallback
   if(dd!==null){ if(dd<0)s+=100+Math.min(-dd,30)*5; else if(dd===0)s+=80; else if(dd===1)s+=60; else if(dd<=3)s+=40; else if(dd<=7)s+=20; else s+=5; }
   if(t.important)s+=50; s+=Math.min(staleDays(t),20)*3; return s;
 }
-function effScore(t){ return (typeof t.aiPriority==="number") ? t.aiPriority : Math.min(score(t),100); }
+function effScore(t){ if(t.pinnedFor===localKey()) return 1000; return (typeof t.aiPriority==="number") ? t.aiPriority : Math.min(score(t),100); }
+function tomorrowKey(){ return localKey(Date.now()+DAY); }
+function pinTask(id,dateKey){
+  const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  const was=t.pinnedFor===dateKey;
+  state.tasks.forEach(x=>{ if(x.pinnedFor===dateKey){ x.pinnedFor=null; x.updatedAt=Date.now(); } });
+  if(!was){ t.pinnedFor=dateKey; t.bucket="active"; t.updatedAt=Date.now(); }
+  saveTasks(); render(); queueSync();
+}
+let toastTimer=null;
+function showToast(msg,btnLabel,fn){
+  const old=$("#toast"); if(old) old.remove(); clearTimeout(toastTimer);
+  const el=document.createElement("div"); el.id="toast"; el.className="toast";
+  el.innerHTML=`<span>${msg}</span>`+(btnLabel?`<button>${esc(btnLabel)}</button>`:"");
+  if(btnLabel) el.querySelector("button").onclick=()=>{ el.remove(); clearTimeout(toastTimer); if(fn) fn(); };
+  document.body.appendChild(el);
+  toastTimer=setTimeout(()=>el.remove(),5000);
+}
 const isStale=t=>staleDays(t)>=4;
 function isToday(ts){ return ts && new Date(ts).toDateString()===new Date().toDateString(); }
 function fmtMins(m){ if(!m||m<1) return null; if(m<60) return "~"+m+"m"; return "~"+(Math.round(m/30)/2)+"h"; }
@@ -315,10 +354,12 @@ function taskHTML(t,rank){
   const eff=fmtMins(t.effortMins); if(eff) meta.push(`<span class="pillm eff">${eff}</span>`);
   if(!t.done&&isStale(t)) meta.push(`<span class="pillm stale">🕓 ${staleDays(t)}d</span>`);
   if(t.important) meta.push(`<span class="pillm imp">★</span>`);
-  const rankB=(rank&&!t.done)?`<span class="rank">${rank}</span>`:"";
+  const isOne=!t.done&&t.pinnedFor===localKey();
+  const rankB=isOne?`<span class="rank one">🎯 #1</span>`:(rank&&!t.done)?`<span class="rank">${rank}</span>`:"";
   const why=(!t.done&&t.why)?`<div class="why">${esc(t.why)}</div>`:"";
   const move=t.bucket==="active"?"→ Someday":"↑ Make active";
-  return `<li class="task${t.done?" done":""}${(!t.done&&isStale(t))?" stale":""}${state.openId===t.id?" open":""}" data-id="${t.id}">
+  const pinLbl=isOne?"Unpin #1":"🎯 Today's #1";
+  return `<li class="task${t.done?" done":""}${(!t.done&&isStale(t))?" stale":""}${isOne?" one":""}${state.openId===t.id?" open":""}" data-id="${t.id}">
     <div class="row">
       <button class="check" data-act="done" aria-label="Done"></button>
       <div class="body" data-act="open"><div class="txt">${rankB}${esc(t.text)}</div>${why}${meta.length?`<div class="meta">${meta.join("")}</div>`:""}</div>
@@ -326,7 +367,7 @@ function taskHTML(t,rank){
     </div>
     <div class="detail">
       <div class="editline"><input type="text" data-act="edit" value="${esc(t.text)}"><input type="date" data-act="due" value="${t.due||""}"></div>
-      <div class="ctrls"><button class="chipbtn" data-act="move">${move}</button><button class="chipbtn del" data-act="del">🗑 Delete</button></div>
+      <div class="ctrls"><button class="chipbtn" data-act="pin">${pinLbl}</button><button class="chipbtn" data-act="move">${move}</button><button class="chipbtn del" data-act="del">🗑 Delete</button></div>
     </div></li>`;
 }
 function dayLabel(key){ const today=new Date(); today.setHours(0,0,0,0); const d=new Date(key+"T00:00:00"); const diff=Math.round((today-d)/DAY);
@@ -349,6 +390,21 @@ function historyHTML(){
   });
   html+=`<button class="weekbtn" id="weekBtn">📧 Generate weekly email</button>`;
   return html;
+}
+function wrapHTML(){
+  if(state.view!=="today") return "";
+  if(new Date().getHours()<16) return "";
+  if(load("dtm.wrapDone","")===localKey()) return "";
+  const doneN=doneTodayList().length;
+  const pinned=state.tasks.find(t=>!t.deleted&&!t.done&&t.pinnedFor===tomorrowKey());
+  let inner;
+  if(pinned) inner=`<div class="wsel">🎯 Tomorrow's #1: <b>${esc(pinned.text)}</b></div>`;
+  else{
+    const opts=activeOpen().slice(0,5).map(t=>`<button class="wchip" data-pin="${t.id}">${esc(t.text)}</button>`).join("");
+    inner=opts?`<div class="wq">Pick tomorrow's #1 — it'll be pinned on top in the morning:</div><div class="wchips">${opts}</div>`
+              :`<div class="wq">Nothing open — clean slate tomorrow 🎉</div>`;
+  }
+  return `<div class="wrapup"><div class="bh"><b>🌇 Day wrap-up — ${doneN} done today</b><button class="mini" id="wrapDismiss">Done</button></div>${inner}</div>`;
 }
 function briefHTML(){
   if(state.view!=="today") return "";
@@ -378,7 +434,7 @@ function render(){
   $("#paPill").style.display=paOn?"inline-flex":"none";
 
   // brief
-  $("#briefArea").innerHTML=briefHTML();
+  $("#briefArea").innerHTML=wrapHTML()+briefHTML();
 
   // banner
   const banner=$("#banner");
@@ -406,11 +462,16 @@ $("#content").addEventListener("click",e=>{
   const wk=e.target.closest("#weekBtn"); if(wk){ openWeek(); return; }
   const li=e.target.closest(".task"); if(!li) return;
   const id=li.dataset.id, act=e.target.closest("[data-act]")?.dataset.act;
-  if(act==="done") mutate(id,t=>{ t.done=!t.done; t.completedAt=t.done?Date.now():null; if(t.done)state.openId=null; });
+  if(act==="done"){
+    const t=state.tasks.find(x=>x.id===id); const wasDone=t&&t.done;
+    mutate(id,x=>{ x.done=!x.done; x.completedAt=x.done?Date.now():null; if(x.done)state.openId=null; });
+    if(t&&!wasDone) showToast("✓ Done","Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; }));
+  }
   else if(act==="star"){ mutate(id,t=>t.important=!t.important); queuePrioritize(); }
   else if(act==="open"){ state.openId=state.openId===id?null:id; render(); }
+  else if(act==="pin") pinTask(id,localKey());
   else if(act==="move") mutate(id,t=>t.bucket=t.bucket==="active"?"someday":"active");
-  else if(act==="del"){ mutate(id,t=>t.deleted=true); state.openId=null; }
+  else if(act==="del"){ mutate(id,t=>t.deleted=true); state.openId=null; showToast("Deleted","Undo",()=>mutate(id,t=>t.deleted=false)); }
 });
 $("#content").addEventListener("change",e=>{ const id=e.target.closest(".task")?.dataset.id; if(id&&e.target.dataset.act==="due"){ mutate(id,t=>t.due=e.target.value||null); queuePrioritize(); } });
 $("#content").addEventListener("keydown",e=>{ if(e.target.dataset.act==="edit"&&e.key==="Enter"){ e.preventDefault(); e.target.blur(); } });
@@ -418,6 +479,8 @@ $("#content").addEventListener("blur",e=>{ if(e.target.dataset.act==="edit"){ co
 
 $("#briefArea").addEventListener("click",e=>{
   if(e.target.closest("#getBrief")||e.target.closest("#refreshBrief")){ generateBrief(true); return; }
+  if(e.target.closest("#wrapDismiss")){ localStorage.setItem("dtm.wrapDone",JSON.stringify(localKey())); render(); return; }
+  const wc=e.target.closest("[data-pin]"); if(wc){ pinTask(wc.dataset.pin,tomorrowKey()); showToast("🎯 Pinned for tomorrow",null,null); return; }
   const f=e.target.closest("[data-focus]"); if(f){ state.view="today"; const el=document.querySelector(`.task[data-id="${f.dataset.focus}"]`); if(el){ el.style.transition="background .3s"; el.style.background="#23284a"; setTimeout(()=>el.style.background="",700); el.scrollIntoView({behavior:"smooth",block:"center"}); } }
 });
 
@@ -450,10 +513,20 @@ function clampNum(n){ n=Number(n); return Number.isFinite(n)?Math.round(n):undef
 function parseLooseJSON(s){ if(!s) return null; let t=String(s).trim().replace(/^```[a-z]*\s*/i,"").replace(/\s*```$/,""); const a=t.indexOf("{"),b=t.lastIndexOf("}"); if(a>=0&&b>a) t=t.slice(a,b+1); try{ return JSON.parse(t); }catch(e){ return null; } }
 function setPA(s,msg){ const p=$("#paPill"); if(!p) return; p.dataset.s=s; if(msg) p.title=msg; $("#paLabel").textContent={ready:"PA",thinking:"thinking…",error:"PA error"}[s]||"PA"; }
 const SYS_PRIORITIZE=`You are a personal assistant prioritizing ONE user's tasks (work + personal). Input is a JSON task list (id, text, due YYYY-MM-DD or null, important, createdAt, bucket). Return ONLY JSON, no prose, no fences: {"tasks":[{"id":"<id>","priority":<1-100>,"effortMins":<int>,"why":"<=8 words"}]}. Higher priority = do sooner. Weigh due-date proximity, importance, how long it has sat, and obvious dependencies. Be decisive and realistic about effort.`;
-const SYS_BRIEF=`You are a personal assistant giving ONE user a short daily briefing (work + personal). Input is a JSON task list. Return ONLY JSON, no prose, no fences: {"summary":"<2-3 sentences: what to do today and roughly how much time>","focus":[{"id":"<id>","action":"<=12 words","minutes":<int>}],"skip":["<id>"]}. Pick the 3-5 things that matter most today. Realistic about total time. Direct and encouraging.`;
+const SYS_BRIEF=`You are a personal assistant giving ONE user a short daily briefing (work + personal). Input is a JSON task list. Return ONLY JSON, no prose, no fences: {"summary":"<2-3 sentences: what to do today and roughly how much time>","focus":[{"id":"<id>","action":"<=12 words","minutes":<int>}],"skip":["<id>"]}. Pick the 3-5 things that matter most today. A task with pinned:true is the user's chosen #1 for today — put it first in focus and build the plan around it. Realistic about total time. Direct and encouraging.`;
 const SYS_WEEKLY=`You are drafting a brief weekly status update the user will paste into an email to their manager. Input is JSON with "completed" (tasks finished in the last 7 days) and "inProgress" (current open tasks, highest priority first). Write in the user's first-person voice: concise, confident, professional. Output ONLY the email body to paste — no subject, no greeting, no sign-off, no preamble. Use two short labeled sections: what got done this week (from completed), and current focus / what's next (from inProgress — lead with important or due-soon items). Tight bullets, group related items, only real items from the input, never invent. If a section is empty, say so in one short honest line.`;
 function paReady(){ return !!(state.config.proxyUrl&&state.config.appSecret); }
-function aiTaskPayload(){ return state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket})); }
+function aiTaskPayload(){ return state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket,pinned:t.pinnedFor===localKey()})); }
+let paErrToasted=false;
+function paError(e){
+  console.error(e); setPA("error",e.message);
+  if(paErrToasted) return; paErrToasted=true;
+  const m=String(e.message||"");
+  let msg="Claude PA error — check the Worker URL & secret in ⚙";
+  if(/401|403|unauthorized/i.test(m)) msg="PA rejected: the app secret doesn't match the Worker's APP_SECRET (⚙)";
+  else if(/credit|billing|402/i.test(m)) msg="PA out of Anthropic credit — top up at console.anthropic.com";
+  showToast(msg,"OK",null);
+}
 async function callPA(system,prompt,max){
   const c=state.config; if(!paReady()) return null;
   const res=await fetch(c.proxyUrl,{method:"POST",headers:{"content-type":"application/json","x-app-secret":c.appSecret},body:JSON.stringify({system,prompt,max_tokens:max||1024})});
@@ -470,7 +543,7 @@ async function runPrioritize(){
       state.tasks.forEach(t=>{ const x=m[t.id]; if(x){ if(x.priority!=null)t.aiPriority=clampNum(x.priority); if(x.effortMins!=null)t.effortMins=clampNum(x.effortMins); if(x.why)t.why=String(x.why).trim(); } });
       saveTasks(); render(); }
     setPA("ready");
-  }catch(e){ console.error(e); setPA("error",e.message); }
+  }catch(e){ paError(e); }
 }
 async function generateBrief(force){
   if(!paReady()||!navigator.onLine) return;
@@ -480,7 +553,7 @@ async function generateBrief(force){
   try{ const r=parseLooseJSON(await callPA(SYS_BRIEF,"Now: "+new Date()+"\nTasks:\n"+JSON.stringify(aiTaskPayload()),1024));
     if(r){ state.brief={date:today,summary:r.summary||"",focus:Array.isArray(r.focus)?r.focus:[],skip:r.skip||[]}; localStorage.setItem(K_BRIEF,JSON.stringify(state.brief)); render(); }
     setPA("ready");
-  }catch(e){ console.error(e); setPA("error",e.message); }
+  }catch(e){ paError(e); }
 }
 async function generateWeekly(){
   const since=Date.now()-7*DAY;
@@ -491,7 +564,7 @@ async function generateWeekly(){
   try{ const payload={completed:done.map(t=>({text:t.text,day:localKey(t.completedAt)})),inProgress:active.map(t=>({text:t.text,due:t.due,important:t.important}))};
     const text=(await callPA(SYS_WEEKLY,"This week's data:\n"+JSON.stringify(payload),900)||"").trim();
     setPA("ready"); return text||weeklyText(done,active);
-  }catch(e){ console.error(e); setPA("error",e.message); return weeklyText(done,active); }
+  }catch(e){ paError(e); return weeklyText(done,active); }
 }
 
 /* sync (GitHub Gist, self-healing) */
@@ -505,35 +578,53 @@ function mergeTasks(localArr,remoteArr){ const m=new Map(); remoteArr.forEach(t=
   const cutoff=Date.now()-365*DAY; return [...m.values()].filter(t=>!(t.deleted&&(t.updatedAt||0)<cutoff)); }
 async function discoverAppGists(){ const list=await gh("https://api.github.com/gists?per_page=100"); const matches=(list||[]).filter(g=>g.files&&g.files[GIST_FILE]); const out=[];
   for(const mm of matches){ let tasks=[]; try{ const g=await gh("https://api.github.com/gists/"+mm.id); const f=g.files[GIST_FILE]; let c=f.content; if(f.truncated&&f.raw_url)c=await(await fetch(f.raw_url)).text(); tasks=(JSON.parse(c).tasks)||[]; }catch(e){} out.push({id:mm.id,created:mm.created_at||"",tasks}); } return out; }
+// Full sync = self-healing discovery across ALL app gists (load / recovery).
+// Fast sync = talk only to the known home gist (every subsequent save) — far fewer API calls.
+let fullSynced=false;
+async function fullSync(){
+  const found=await discoverAppGists();
+  let merged=state.tasks; for(const g of found) merged=mergeTasks(merged,g.tasks);
+  state.tasks=merged; saveTasks();
+  let canonical=""; if(found.length){ const s=found.slice().sort((a,b)=>a.created<b.created?-1:a.created>b.created?1:(a.id<b.id?-1:1)); canonical=s[0].id; }
+  const content=JSON.stringify({v:1,tasks:merged},null,2);
+  if(canonical){ await gh("https://api.github.com/gists/"+canonical,{method:"PATCH",body:JSON.stringify({files:{[GIST_FILE]:{content}}})}); }
+  else { const g=await gh("https://api.github.com/gists",{method:"POST",body:JSON.stringify({description:"Daily Task Manager data",public:false,files:{[GIST_FILE]:{content}}})}); canonical=g.id; }
+  if(canonical!==state.config.gistId){ state.config.gistId=canonical; saveConfig(); }
+}
+async function fastSync(){
+  const g=await gh("https://api.github.com/gists/"+state.config.gistId);
+  const f=g.files&&g.files[GIST_FILE]; let remote=[];
+  if(f){ let c=f.content; if(f.truncated&&f.raw_url)c=await(await fetch(f.raw_url)).text(); try{ remote=JSON.parse(c).tasks||[]; }catch(e){} }
+  state.tasks=mergeTasks(state.tasks,remote); saveTasks();
+  await gh("https://api.github.com/gists/"+state.config.gistId,
+    {method:"PATCH",body:JSON.stringify({files:{[GIST_FILE]:{content:JSON.stringify({v:1,tasks:state.tasks},null,2)}}})});
+}
 async function syncNow(){
   if(!state.config.token){ setSync("local"); return; }
   if(!navigator.onLine){ setSync("offline"); return; }
   if(syncing){ pending=true; return; } syncing=true; setSync("syncing");
   try{
-    const found=await discoverAppGists();
-    let merged=state.tasks; for(const g of found) merged=mergeTasks(merged,g.tasks);
-    state.tasks=merged; saveTasks();
-    let canonical=""; if(found.length){ const s=found.slice().sort((a,b)=>a.created<b.created?-1:a.created>b.created?1:(a.id<b.id?-1:1)); canonical=s[0].id; }
-    const content=JSON.stringify({v:1,tasks:merged},null,2);
-    if(canonical){ await gh("https://api.github.com/gists/"+canonical,{method:"PATCH",body:JSON.stringify({files:{[GIST_FILE]:{content}}})}); }
-    else { const g=await gh("https://api.github.com/gists",{method:"POST",body:JSON.stringify({description:"Daily Task Manager data",public:false,files:{[GIST_FILE]:{content}}})}); canonical=g.id; }
-    if(canonical!==state.config.gistId){ state.config.gistId=canonical; saveConfig(); }
+    if(state.config.gistId&&fullSynced){
+      try{ await fastSync(); }
+      catch(e){ fullSynced=false; await fullSync(); fullSynced=true; }
+    } else { await fullSync(); fullSynced=true; }
     state.lastSync=Date.now(); setSync("synced"); render(); updateSyncInfo();
   }catch(err){ console.error(err); setSync("error",err.message); }
   finally{ syncing=false; if(pending){ pending=false; queueSync(); } }
 }
 
 /* lifecycle */
+const canHover=matchMedia("(hover:hover) and (pointer:fine)").matches;
 addEventListener("online",()=>{ syncNow(); queuePrioritize(); });
 addEventListener("offline",()=>setSync("offline"));
-addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"){ syncNow(); generateBrief(false); } });
-addEventListener("focus",()=>$("#captureInput")&&document.activeElement===document.body&&$("#captureInput").focus());
+addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"){ render(); syncNow(); generateBrief(false); } });
+addEventListener("focus",()=>{ if(canHover&&document.activeElement===document.body) $("#captureInput").focus(); });
 if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(console.error));
 
 render();
-if(state.config.token){ syncNow().then(()=>{ generateBrief(false); }); } else setSync("local");
-if(state.config.proxyUrl&&state.config.appSecret) setPA("ready");
-$("#captureInput").focus();
+(async()=>{ if(state.config.token) await syncNow(); else setSync("local"); generateBrief(false); })();
+if(paReady()) setPA("ready");
+if(canHover) $("#captureInput").focus();
 </script>
 </body>
 </html>

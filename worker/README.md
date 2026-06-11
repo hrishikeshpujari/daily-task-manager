@@ -14,6 +14,7 @@ A tiny proxy that lets the task app call Claude without ever putting your Anthro
    - `ANTHROPIC_API_KEY` — your Anthropic key — **type: Secret**
    - `APP_SECRET` — your random string — **type: Secret**
    - `MODEL` *(optional)* — `claude-haiku-4-5-20251001` — type: Text
+   - `ALLOWED_ORIGINS` *(optional)* — comma-separated browser origins allowed to call this Worker; defaults to the app's GitHub Pages origin + localhost — type: Text
 4. Copy your Worker URL: `https://task-pa.<your-subdomain>.workers.dev`.
 
 ## Deploy — Option B: Wrangler CLI

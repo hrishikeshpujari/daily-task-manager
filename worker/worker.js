@@ -10,10 +10,16 @@
 
 export default {
   async fetch(request, env) {
+    // Only the app's origin may call this from a browser (override via env.ALLOWED_ORIGINS,
+    // comma-separated). localhost is allowed for local testing.
+    const allowed = (env.ALLOWED_ORIGINS || "https://hrishikeshpujari.github.io,http://localhost:4178")
+      .split(",").map(s => s.trim());
+    const origin = request.headers.get("Origin") || "";
     const cors = {
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": allowed.includes(origin) ? origin : allowed[0],
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, x-app-secret",
+      "Vary": "Origin",
     };
     if (request.method === "OPTIONS") return new Response(null, { headers: cors });
     if (request.method !== "POST") return json({ error: "POST only" }, 405, cors);
