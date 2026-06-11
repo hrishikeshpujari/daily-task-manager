@@ -58,6 +58,14 @@ score = due-proximity + importance + staleness
 ```
 Tweak the numbers in the `score()` function in `index.html` to match how you actually feel urgency.
 
+## Android app + home-screen widget (`/android`)
+A native Android companion (Kotlin) with the one thing a PWA can't do: a **home-screen widget**.
+
+- **App** = the live web app in a full-screen shell. Open it once and sign-in carries over to the widget automatically (it mirrors the web app's settings — no second setup).
+- **Widget** shows today's top 5 (Claude-ranked, 🎯 #1 first), the ✨ daily-brief line, and your done-today count. **Tap a circle** to complete a task, **tap ＋** to quick-add — new tasks sync to the gist and get Claude-prioritized **in the background**, even with the app closed. Auto-refreshes every 30 min, ↻ for manual.
+
+**Build:** open `/android` in Android Studio (or `gradlew :app:assembleDebug`), install the APK on your phone (enable "install unknown apps"). Then: open the app once → long-press home screen → Widgets → **Tasks PA**.
+
 ## Notes
 - **Offline:** the service worker caches the app so it opens with no signal; changes save locally and sync when you're back online.
 - **Conflicts:** edits merge per-task by last-write-wins (each task carries an `updatedAt`), so editing on phone and desktop won't clobber the whole list.

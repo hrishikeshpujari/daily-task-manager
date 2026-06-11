@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tasks PA</string>
+    <string name="widget_desc">Today\'s top tasks with Claude\'s plan, one-tap done, and quick add.</string>
+    <string name="quick_add_hint">Add a task…</string>
+    <string name="add">Add</string>
+    <string name="added_toast">Added — Claude will prioritize it</string>
+    <string name="empty_widget">All clear — tap to open</string>
+</resources>

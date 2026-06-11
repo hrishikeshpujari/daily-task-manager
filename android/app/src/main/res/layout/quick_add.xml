@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/panel_bg"
+    android:padding="18dp">
+
+    <EditText
+        android:id="@+id/input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/input_bg"
+        android:hint="@string/quick_add_hint"
+        android:textColorHint="@color/dim"
+        android:textColor="@color/text"
+        android:textSize="16sp"
+        android:padding="14dp"
+        android:inputType="textCapSentences"
+        android:imeOptions="actionDone"
+        android:maxLines="1" />
+
+    <Button
+        android:id="@+id/add"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:background="@drawable/add_btn_bg"
+        android:text="@string/add"
+        android:textColor="#0b0e16"
+        android:textStyle="bold"
+        android:textSize="15sp" />
+</LinearLayout>
