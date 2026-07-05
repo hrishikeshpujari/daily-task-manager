@@ -542,14 +542,16 @@ async function runIngest(id, raw){
   if(!paReady()||!navigator.onLine) return;
   setPA("thinking");
   try{
+    const before=state.tasks.find(x=>x.id===id); const stamp=before?before.updatedAt:0;
     const out=parseLooseJSON(await callPA(SYS_INGEST, "Today is "+localKey()+". Raw capture:\n"+raw, 400));
     const t=state.tasks.find(x=>x.id===id);
-    if(out&&t&&!t.deleted){
+    if(out&&t&&!t.deleted&&t.updatedAt===stamp){
       if(out.text&&String(out.text).trim()) t.text=String(out.text).trim();
       if(out.due&&/^\d{4}-\d{2}-\d{2}$/.test(out.due)) t.due=out.due;
       if(typeof out.important==="boolean") t.important=out.important;
       if(out.domain&&String(out.domain).trim()&&String(out.domain).toLowerCase()!=="null") t.domain=String(out.domain).trim();
       if(out.bucket==="someday") t.bucket="someday";
+      t.updatedAt=Date.now();
       saveTasks(); render(); queueSync(); queuePrioritize();
     }
     setPA("ready");
