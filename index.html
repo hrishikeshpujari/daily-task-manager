@@ -134,6 +134,7 @@
   .pillm.eff{color:var(--accent);border-color:#2c3350}
   .pillm.stale{color:var(--warn);border-color:#4a3d24}
   .pillm.imp{color:var(--star);border-color:#4a4326}
+  .pillm.dom{color:var(--pa);border-color:#352b57}
   .star{flex:none;background:none;border:none;font-size:19px;cursor:pointer;color:#3a3f4c;padding:0 2px;transition:.12s}
   .star.on{color:var(--star)}
   .star:active{transform:scale(.85)}
@@ -300,9 +301,10 @@ const $=s=>document.querySelector(s);
 /* model */
 function addTask(text){
   text=text.trim(); if(!text) return;
-  const now=Date.now();
-  state.tasks.push({id:uid(),text,createdAt:now,updatedAt:now,due:null,important:false,done:false,completedAt:null,bucket:"active",deleted:false});
-  saveTasks(); render(); queueSync(); queuePrioritize();
+  const now=Date.now(); const id=uid();
+  state.tasks.push({id,text,createdAt:now,updatedAt:now,due:null,important:false,done:false,completedAt:null,bucket:"active",deleted:false});
+  saveTasks(); render(); queueSync();
+  if(paReady()&&looksIngestable(text)) runIngest(id,text); else queuePrioritize();
 }
 function mutate(id,fn){ const t=state.tasks.find(x=>x.id===id); if(!t) return; fn(t); t.updatedAt=Date.now(); saveTasks(); render(); queueSync(); }
 
@@ -354,6 +356,7 @@ function taskHTML(t,rank){
   const eff=fmtMins(t.effortMins); if(eff) meta.push(`<span class="pillm eff">${eff}</span>`);
   if(!t.done&&isStale(t)) meta.push(`<span class="pillm stale">🕓 ${staleDays(t)}d</span>`);
   if(t.important) meta.push(`<span class="pillm imp">★</span>`);
+  if(t.domain) meta.push(`<span class="pillm dom">${esc(t.domain)}</span>`);
   const isOne=!t.done&&t.pinnedFor===localKey();
   const rankB=isOne?`<span class="rank one">🎯 #1</span>`:(rank&&!t.done)?`<span class="rank">${rank}</span>`:"";
   const why=(!t.done&&t.why)?`<div class="why">${esc(t.why)}</div>`:"";
@@ -515,6 +518,7 @@ function setPA(s,msg){ const p=$("#paPill"); if(!p) return; p.dataset.s=s; if(ms
 const SYS_PRIORITIZE=`You are a personal assistant prioritizing ONE user's tasks (work + personal). Input is a JSON task list (id, text, due YYYY-MM-DD or null, important, createdAt, bucket). Return ONLY JSON, no prose, no fences: {"tasks":[{"id":"<id>","priority":<1-100>,"effortMins":<int>,"why":"<=8 words"}]}. Higher priority = do sooner. Weigh due-date proximity, importance, how long it has sat, and obvious dependencies. Be decisive and realistic about effort.`;
 const SYS_BRIEF=`You are a personal assistant giving ONE user a short daily briefing (work + personal). Input is a JSON task list. Return ONLY JSON, no prose, no fences: {"summary":"<2-3 sentences: what to do today and roughly how much time>","focus":[{"id":"<id>","action":"<=12 words","minutes":<int>}],"skip":["<id>"]}. Pick the 3-5 things that matter most today. A task with pinned:true is the user's chosen #1 for today — put it first in focus and build the plan around it. Realistic about total time. Direct and encouraging.`;
 const SYS_WEEKLY=`You are drafting a brief weekly status update the user will paste into an email to their manager. Input is JSON with "completed" (tasks finished in the last 7 days) and "inProgress" (current open tasks, highest priority first). Write in the user's first-person voice: concise, confident, professional. Output ONLY the email body to paste — no subject, no greeting, no sign-off, no preamble. Use two short labeled sections: what got done this week (from completed), and current focus / what's next (from inProgress — lead with important or due-soon items). Tight bullets, group related items, only real items from the input, never invent. If a section is empty, say so in one short honest line.`;
+const SYS_INGEST=`You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {"text":"<clean concise task title, filler words removed>","due":"<YYYY-MM-DD or null>","important":<true|false>,"domain":"<short area label or null>","bucket":"<active|someday>"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today (tomorrow, tonight, next Monday become a date; if only a clock time is mentioned, use today). Set important:true only if the user signals urgency or importance. Infer domain only if obvious (e.g. Home, Work, Health, Errands, Finance); else null. Use bucket "someday" only for clearly vague someday/maybe ideas; else "active". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged.`;
 function paReady(){ return !!(state.config.proxyUrl&&state.config.appSecret); }
 function aiTaskPayload(){ return state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket,pinned:t.pinnedFor===localKey()})); }
 let paErrToasted=false;
@@ -532,6 +536,24 @@ async function callPA(system,prompt,max){
   const res=await fetch(c.proxyUrl,{method:"POST",headers:{"content-type":"application/json","x-app-secret":c.appSecret},body:JSON.stringify({system,prompt,max_tokens:max||1024})});
   if(!res.ok) throw new Error("PA "+res.status); const data=await res.json(); if(data.error) throw new Error(data.error);
   return data.result||"";
+}
+function looksIngestable(s){ s=String(s); return s.length>=24 || /\d/.test(s) || /\b(today|tonight|tmrw|tomorrow|mon|tue|wed|thu|fri|sat|sun|monday|tuesday|wednesday|thursday|friday|saturday|sunday|am|pm|next|morning|afternoon|evening)\b/i.test(s); }
+async function runIngest(id, raw){
+  if(!paReady()||!navigator.onLine) return;
+  setPA("thinking");
+  try{
+    const out=parseLooseJSON(await callPA(SYS_INGEST, "Today is "+localKey()+". Raw capture:\n"+raw, 400));
+    const t=state.tasks.find(x=>x.id===id);
+    if(out&&t&&!t.deleted){
+      if(out.text&&String(out.text).trim()) t.text=String(out.text).trim();
+      if(out.due&&/^\d{4}-\d{2}-\d{2}$/.test(out.due)) t.due=out.due;
+      if(typeof out.important==="boolean") t.important=out.important;
+      if(out.domain&&String(out.domain).trim()&&String(out.domain).toLowerCase()!=="null") t.domain=String(out.domain).trim();
+      if(out.bucket==="someday") t.bucket="someday";
+      saveTasks(); render(); queueSync(); queuePrioritize();
+    }
+    setPA("ready");
+  }catch(e){ paError(e); }
 }
 let paTimer=null;
 function queuePrioritize(){ if(!paReady()) return; clearTimeout(paTimer); paTimer=setTimeout(runPrioritize,800); }
@@ -619,6 +641,7 @@ addEventListener("online",()=>{ syncNow(); queuePrioritize(); });
 addEventListener("offline",()=>setSync("offline"));
 addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible"){ render(); syncNow(); generateBrief(false); } });
 addEventListener("focus",()=>{ if(canHover&&document.activeElement===document.body) $("#captureInput").focus(); });
+addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==="j"||e.key==="J")){ e.preventDefault(); const i=$("#captureInput"); i.scrollIntoView({block:"start",behavior:"smooth"}); i.focus(); } });
 if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(console.error));
 
 render();
