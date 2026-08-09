@@ -1,0 +1,138 @@
+// Tasks PA — iOS home-screen widget (Scriptable)
+// Shows your week as cute day cards, fed by your own private task data.
+//
+// ── SETUP (2 minutes) ──────────────────────────────────────────────
+// 1) Fill in the two values below (from the person who runs the Worker).
+// 2) In Scriptable: + → paste this whole file → name it "Tasks PA".
+// 3) Long-press home screen → + → Scriptable → pick a size → add,
+//    then long-press the widget → Edit Widget → Script: "Tasks PA".
+// Small = today · Medium = next few days · Large = the whole week.
+// Tapping the widget opens the app.
+
+const WORKER_URL = "https://task-pa.hrishikesh-pujari.workers.dev"; // no trailing slash
+const SECRET     = "PASTE-YOUR-PERSONAL-SECRET-HERE";               // your secret (not a GitHub token)
+const APP_URL    = "https://hrishikeshpujari.github.io/daily-task-manager/";
+const TZ         = "America/Los_Angeles";
+
+// Her palette — day colors echo the iOS Reminders vibe.
+const BG = "#fdfbf6", TEXT = "#3a3742", DIM = "#8b8794", DONE = "#1fa971";
+const DAY_STYLE = {
+  Monday:    { c: "#e0443e", e: "🚗" },
+  Tuesday:   { c: "#e78f2e", e: "🦁" },
+  Wednesday: { c: "#3f9c48", e: "🥑" },
+  Thursday:  { c: "#3f7fd9", e: "🦋" },
+  Friday:    { c: "#e05d84", e: "🎟" },
+  Saturday:  { c: "#9a5fd8", e: "🌸" },
+  Sunday:    { c: "#2ba39a", e: "☀️" },
+  Today:     { c: "#e0443e", e: "⭐" },
+  Tomorrow:  { c: "#e78f2e", e: "✨" },
+};
+
+async function fetchWeek() {
+  const fm = FileManager.local();
+  const cachePath = fm.joinPath(fm.documentsDirectory(), "taskspa-week.json");
+  try {
+    const req = new Request(`${WORKER_URL}/week?tz=${encodeURIComponent(TZ)}`);
+    req.headers = { "x-app-secret": SECRET };
+    req.timeoutInterval = 15;
+    const data = await req.loadJSON();
+    if (data && data.days) { fm.writeString(cachePath, JSON.stringify(data)); return data; }
+  } catch (e) {}
+  if (fm.fileExists(cachePath)) { try { return JSON.parse(fm.readString(cachePath)); } catch (e) {} }
+  return null;
+}
+
+function addTaskLine(stack, t, size) {
+  const row = stack.addStack();
+  row.centerAlignContent();
+  const dot = row.addText(t.important ? "★ " : "○ ");
+  dot.font = Font.systemFont(size === "large" ? 12 : 11);
+  dot.textColor = new Color(t.important ? "#c9990e" : DIM);
+  const txt = row.addText((t.pinnedFor ? "🎯 " : "") + t.text);
+  txt.font = Font.systemFont(size === "large" ? 13 : 12);
+  txt.textColor = new Color(TEXT);
+  txt.lineLimit = 1;
+  stack.addSpacer(3);
+}
+
+function addDayHeader(stack, label, count, size) {
+  const st = DAY_STYLE[label] || { c: TEXT, e: "" };
+  const row = stack.addStack();
+  row.centerAlignContent();
+  const name = row.addText(`${label} ${st.e}`);
+  name.font = Font.boldSystemFont(size === "large" ? 14 : 13);
+  name.textColor = new Color(st.c);
+  row.addSpacer();
+  const n = row.addText(String(count));
+  n.font = Font.boldSystemFont(size === "large" ? 14 : 13);
+  n.textColor = new Color(count ? TEXT : DIM);
+  stack.addSpacer(3);
+}
+
+function build(data) {
+  const w = new ListWidget();
+  w.backgroundColor = new Color(BG);
+  w.url = APP_URL;
+  w.setPadding(14, 14, 12, 14);
+  w.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
+
+  const size = config.widgetFamily || "medium";
+
+  if (!data) {
+    const t = w.addText("Open the app once, then check the widget setup 🌸");
+    t.font = Font.systemFont(13); t.textColor = new Color(DIM);
+    return w;
+  }
+
+  // header
+  const head = w.addStack();
+  head.centerAlignContent();
+  const title = head.addText(size === "small" ? "Today" : "This week");
+  title.font = Font.boldSystemFont(15);
+  title.textColor = new Color(TEXT);
+  head.addSpacer();
+  if (data.doneToday > 0) {
+    const d = head.addText(`✓ ${data.doneToday}`);
+    d.font = Font.boldSystemFont(13);
+    d.textColor = new Color(DONE);
+  }
+  w.addSpacer(8);
+
+  const days = data.days || [];
+  const overdue = data.overdue || [];
+
+  if (overdue.length) {
+    addDayHeader(w, "Overdue", overdue.length, size);
+    for (const t of overdue.slice(0, size === "small" ? 1 : 2)) addTaskLine(w, t, size);
+    w.addSpacer(5);
+  }
+
+  const maxDays  = size === "large" ? 7 : size === "medium" ? 3 : 1;
+  const maxTasks = size === "large" ? 3 : 2;
+  let shownAny = false;
+  for (const day of days.slice(0, maxDays)) {
+    if (size !== "large" && !day.tasks.length && day.label !== "Today") continue;
+    addDayHeader(w, day.label, day.tasks.length, size);
+    if (day.tasks.length) { for (const t of day.tasks.slice(0, maxTasks)) addTaskLine(w, t, size); shownAny = true; }
+    else if (day.label === "Today" || size === "large") {
+      const t = w.addText("nothing planned ✧");
+      t.font = Font.italicSystemFont(11); t.textColor = new Color(DIM);
+      w.addSpacer(3);
+    }
+    w.addSpacer(5);
+  }
+
+  if (!shownAny && !overdue.length && data.unscheduled && data.unscheduled.length) {
+    addDayHeader(w, "Up next", data.unscheduled.length, size);
+    for (const t of data.unscheduled.slice(0, maxTasks)) addTaskLine(w, t, size);
+  }
+
+  w.addSpacer();
+  return w;
+}
+
+const data = await fetchWeek();
+const widget = build(data);
+if (config.runsInWidget) Script.setWidget(widget);
+else await widget.presentMedium();
+Script.complete();

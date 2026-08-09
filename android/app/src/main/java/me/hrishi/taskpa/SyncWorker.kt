@@ -45,9 +45,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
 
             var merged = Store.merge(Store.loadTasks(ctx), Net.fetchTasks(token, gistId))
 
+            val proxy = Store.proxyUrl(ctx)
+            val secret = Store.appSecret(ctx)
+            merged = applyIngest(merged, proxy, secret)
+
             if (inputData.getBoolean("pa", false)) {
-                val proxy = Store.proxyUrl(ctx)
-                val secret = Store.appSecret(ctx)
                 if (proxy.isNotBlank() && secret.isNotBlank()) {
                     try { merged = applyPa(merged, proxy, secret) } catch (_: Exception) { /* PA optional */ }
                 }
@@ -61,6 +63,35 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             if (runAttemptCount < 3) Result.retry()
             else { TaskWidget.updateAll(ctx); Result.failure() }
         }
+    }
+
+    /** Clean up messy widget quick-adds (raw=true) via the same AI ingest the web app uses. */
+    private fun applyIngest(tasks: JSONArray, proxy: String, secret: String): JSONArray {
+        val noProxy = proxy.isBlank() || secret.isBlank()
+        for (i in 0 until tasks.length()) {
+            val t = tasks.optJSONObject(i) ?: continue
+            if (!t.optBoolean("raw") || t.optBoolean("done") || t.optBoolean("deleted")) {
+                if (t.has("raw") && !t.optBoolean("raw")) t.remove("raw")
+                continue
+            }
+            t.remove("raw")  // one attempt; degrade to plain task on any failure
+            if (noProxy) continue
+            try {
+                val result = Net.paCall(proxy, secret, SYS_INGEST,
+                    "Today is " + Store.localKey() + ". Raw capture:\n" + t.optString("text"), 400)
+                val out = Net.parseLoose(result) ?: continue
+                val text = out.optString("text").trim()
+                if (text.isNotEmpty()) t.put("text", text)
+                val due = out.optString("due")
+                if (Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(due)) t.put("due", due)
+                if (out.has("important")) t.put("important", out.optBoolean("important"))
+                val domain = out.optString("domain").trim()
+                if (domain.isNotEmpty() && domain.lowercase() != "null") t.put("domain", domain)
+                if (out.optString("bucket") == "someday") t.put("bucket", "someday")
+                t.put("updatedAt", System.currentTimeMillis())
+            } catch (_: Exception) { /* keep the raw text as a plain task */ }
+        }
+        return tasks
     }
 
     private fun applyPa(tasks: JSONArray, proxy: String, secret: String): JSONArray {
@@ -97,8 +128,9 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     }
 
     companion object {
-        // Same prompt as the web app, so rankings agree no matter where a task was added.
+        // Same prompts as the web app, so behavior agrees no matter where a task was added.
         const val SYS_PRIORITIZE = "You are a personal assistant prioritizing ONE user's tasks (work + personal). Input is a JSON task list (id, text, due YYYY-MM-DD or null, important, createdAt, bucket). Return ONLY JSON, no prose, no fences: {\"tasks\":[{\"id\":\"<id>\",\"priority\":<1-100>,\"effortMins\":<int>,\"why\":\"<=8 words\"}]}. Higher priority = do sooner. Weigh due-date proximity, importance, how long it has sat, and obvious dependencies. Be decisive and realistic about effort. A task with pinned:true is the user's chosen #1 for today."
+        const val SYS_INGEST = "You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {\"text\":\"<clean concise task title, filler words removed>\",\"due\":\"<YYYY-MM-DD or null>\",\"important\":<true|false>,\"domain\":\"<short area label or null>\",\"bucket\":\"<active|someday>\"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today. Set important:true only if the user signals urgency. Infer domain only if obvious; else null. Use bucket \"someday\" only for clearly vague someday/maybe ideas; else \"active\". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged."
 
         fun enqueueOnce(ctx: Context, withPa: Boolean) {
             val req = OneTimeWorkRequestBuilder<SyncWorker>()

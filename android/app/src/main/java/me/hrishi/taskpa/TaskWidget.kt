@@ -54,6 +54,20 @@ class TaskWidget : AppWidgetProvider() {
             for (id in ids) mgr.updateAppWidget(id, build(context))
         }
 
+        /** Short day label for a task's due date: "⚠ late", "Today", "Tmrw", or "Thu". */
+        private fun dayChip(t: org.json.JSONObject): String {
+            val due = if (t.isNull("due")) "" else t.optString("due", "")
+            if (due.isBlank()) return ""
+            val today = Store.localKey()
+            if (due < today) return "⚠ late"
+            if (due == today) return "Today"
+            if (due == Store.localKey(System.currentTimeMillis() + Store.DAY)) return "Tmrw"
+            return try {
+                val d = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(due)!!
+                java.text.SimpleDateFormat("EEE", java.util.Locale.US).format(d)
+            } catch (e: Exception) { "" }
+        }
+
         private fun broadcast(context: Context, intent: Intent, req: Int): PendingIntent =
             PendingIntent.getBroadcast(context, req, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -82,9 +96,11 @@ class TaskWidget : AppWidgetProvider() {
                     val pin = if (t.optString("pinnedFor") == Store.localKey()) "🎯 " else ""
                     v.setTextViewText(TEXTS[i], pin + t.optString("text"))
                     val why = t.optString("why")
-                    if (why.isNotBlank()) {
+                    val day = dayChip(t)
+                    val sub = listOf(day, if (why.isNotBlank()) "✦ $why" else "").filter { it.isNotBlank() }.joinToString("  ")
+                    if (sub.isNotBlank()) {
                         v.setViewVisibility(WHYS[i], View.VISIBLE)
-                        v.setTextViewText(WHYS[i], "✦ $why")
+                        v.setTextViewText(WHYS[i], sub)
                     } else v.setViewVisibility(WHYS[i], View.GONE)
 
                     val done = Intent(context, TaskWidget::class.java)

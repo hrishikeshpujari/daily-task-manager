@@ -137,6 +137,7 @@ object Store {
             .put("due", JSONObject.NULL).put("important", false)
             .put("done", false).put("completedAt", JSONObject.NULL)
             .put("bucket", "active").put("deleted", false)
+            .put("raw", true)  // widget captures are messy text; SyncWorker runs AI ingest on them
         val arr = loadTasks(ctx)
         arr.put(t)
         saveTasks(ctx, arr)
