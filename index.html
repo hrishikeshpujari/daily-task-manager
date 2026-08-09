@@ -208,6 +208,27 @@
   /* today's ONE thing */
   .task.one{border-color:#54481f}
   .rank.one{background:linear-gradient(180deg,var(--star),#dfb13b);min-width:auto;padding:0 8px}
+
+  /* light "playful" theme (per-device, ⚙ → Theme) */
+  body.light{
+    --bg:#f4f1ea; --bg2:#faf8f2; --panel:#ffffff; --panel2:#f3f0e8; --panel3:#eae6da;
+    --line:#e4dfd2; --line2:#d3ccba; --text:#2c2b33; --dim:#6d6b76; --faint:#9a97a1;
+    --accentdim:#6c63ff22; --good:#1fa971; --warn:#b97f14; --bad:#d24f43; --star:#c9990e;
+    --shadow:0 1px 2px rgba(60,50,20,.08), 0 8px 24px rgba(60,50,20,.07);
+    background:linear-gradient(180deg,#faf8f2,#f4f1ea 40%);
+  }
+  body.light .capture input{background:#fff}
+  body.light .check{border-color:#c4bfae}
+  body.light .brief{background:#f4efff;border-color:#ddd2f8}
+  body.light .brief .bh b{color:#6a4fd8}
+  body.light .brief .summary{color:#3a3745}
+  body.light .brief .fitem{background:#00000005}
+  body.light .brief .fitem .fa{color:#2c2b33}
+  body.light .wrapup{background:#fdf6e2;border-color:#ecdcab}
+  body.light .wrapup .bh b{color:#9c7208}
+  body.light .wchip{background:#fff;color:#2c2b33}
+  body.light .toast{background:#fff}
+  body.light .setup-pa{background:#f4efff;border-color:#ddd2f8;color:#5f4bc4}
 </style>
 </head>
 <body>
@@ -252,7 +273,18 @@
     <label>Worker URL</label>
     <input type="text" id="proxyInput" placeholder="https://task-pa.<you>.workers.dev">
     <label>App secret</label>
-    <input type="password" id="secretInput" placeholder="the APP_SECRET you set in the Worker">
+    <input type="password" id="secretInput" placeholder="your personal secret from the Worker">
+
+    <div class="sec">Look</div>
+    <label>Theme</label>
+    <input type="text" id="themeSel" style="display:none">
+    <div class="ctrls" style="display:flex;gap:8px">
+      <button type="button" class="chipbtn" id="themeDark">🌙 Calm dark</button>
+      <button type="button" class="chipbtn" id="themeLight">🌸 Light &amp; playful</button>
+    </div>
+
+    <div class="sec">Migrate</div>
+    <button type="button" class="chipbtn" id="importBtn" style="width:100%">⇪ Import from Apple Notes / Google Keep</button>
 
     <div class="actions">
       <button class="btn-pri" id="saveSettings">Save</button>
@@ -277,6 +309,19 @@
       <button class="btn-sec" id="closeWeek">Close</button>
     </div>
     <p class="help">Covers what you finished this week + what's in progress. Paste into your Monday manager email; edit before copying.</p>
+  </div>
+</div>
+
+<!-- Import -->
+<div class="modal" id="importModal">
+  <div class="sheet">
+    <h2>Import your lists</h2>
+    <textarea id="importText" spellcheck="false" placeholder="Paste everything — Apple Notes lists, Google Keep, day-name lists with emoji, whatever. Claude sorts it into tasks with dates."></textarea>
+    <div class="actions">
+      <button class="btn-pri" id="runImport">Import</button>
+      <button class="btn-sec" id="closeImport">Cancel</button>
+    </div>
+    <p class="help">Day names like "Thursday" become the upcoming Thursday. Checked-off items are skipped. Without the PA configured, each line simply becomes a task.</p>
   </div>
 </div>
 
@@ -409,6 +454,29 @@ function wrapHTML(){
   }
   return `<div class="wrapup"><div class="bh"><b>🌇 Day wrap-up — ${doneN} done today</b><button class="mini" id="wrapDismiss">Done</button></div>${inner}</div>`;
 }
+const DAY_EMOJI={Monday:"🚗",Tuesday:"🦁",Wednesday:"🥑",Thursday:"🦋",Friday:"🎟️",Saturday:"🌸",Sunday:"☀️"};
+function weekHTML(act){
+  if(!act.length) return `<div class="empty">No active tasks. 🎉</div>`;
+  const light=document.body.classList.contains("light");
+  const order=[], byKey={};
+  const add=(key,label,t)=>{ if(!byKey[key]){ byKey[key]={label,tasks:[]}; order.push(key); } byKey[key].tasks.push(t); };
+  const today=new Date(); today.setHours(0,0,0,0);
+  for(const t of act){
+    const dd=dueDays(t);
+    if(dd===null) add("z","No date",t);
+    else if(dd<0) add("a","Overdue",t);
+    else if(dd===0) add("b0","Today",t);
+    else if(dd===1) add("b1","Tomorrow",t);
+    else if(dd<7) add("b"+dd, new Date(today.getTime()+dd*DAY).toLocaleDateString(undefined,{weekday:"long"}), t);
+    else add("y","Later",t);
+  }
+  order.sort();
+  return order.map(k=>{
+    const g=byKey[k];
+    const emoji=light&&DAY_EMOJI[g.label]?" "+DAY_EMOJI[g.label]:"";
+    return `<div class="dayhdr"><h3>${g.label}${emoji}</h3><span class="cnt">${g.tasks.length}</span><div class="ln"></div></div><ul class="list">${g.tasks.map(t=>taskHTML(t,null)).join("")}</ul>`;
+  }).join("");
+}
 function briefHTML(){
   if(state.view!=="today") return "";
   const paOn=!!(state.config.proxyUrl&&state.config.appSecret);
@@ -453,7 +521,7 @@ function render(){
     if(!items.length&&!dt.length) rows=`<div class="empty">Nothing yet. Capture your first task above 👆</div>`;
     else if(act.length>5) rows+=`<div class="empty">+${act.length-5} more in This Week</div>`;
   } else if(state.view==="week"){
-    items=act; rows=items.length?items.map((t,i)=>taskHTML(t,i+1)).join(""):`<div class="empty">No active tasks. 🎉</div>`;
+    c.innerHTML=weekHTML(act); return;
   } else {
     items=some; rows=items.length?items.map(t=>taskHTML(t,null)).join(""):`<div class="empty">Backlog is empty.</div>`;
   }
@@ -509,6 +577,39 @@ $("#gearBtn").onclick=openSettings; $("#syncPill").onclick=openSettings; $("#paP
 $("#closeSettings").onclick=()=>$("#settingsModal").classList.remove("on");
 $("#saveSettings").onclick=()=>{ const c=state.config; c.token=$("#tokenInput").value.trim(); c.gistId=$("#gistInput").value.trim(); c.proxyUrl=$("#proxyInput").value.trim(); c.appSecret=$("#secretInput").value.trim(); saveConfig(); $("#settingsModal").classList.remove("on"); render(); syncNow(); if(c.proxyUrl&&c.appSecret){ runPrioritize(); generateBrief(false); } };
 $("#disconnect").onclick=()=>{ state.config={token:"",gistId:"",proxyUrl:"",appSecret:""}; saveConfig(); state.brief=null; localStorage.removeItem(K_BRIEF); setSync("local"); $("#settingsModal").classList.remove("on"); render(); };
+
+/* theme */
+function applyTheme(){ document.body.classList.toggle("light", load("dtm.theme","dark")==="light"); render(); }
+function setTheme(v){ localStorage.setItem("dtm.theme",JSON.stringify(v)); applyTheme(); showToast(v==="light"?"🌸 Light & playful":"🌙 Calm dark",null,null); }
+$("#themeDark").onclick=()=>setTheme("dark");
+$("#themeLight").onclick=()=>setTheme("light");
+
+/* import */
+$("#importBtn").onclick=()=>{ $("#settingsModal").classList.remove("on"); $("#importModal").classList.add("on"); $("#importText").focus(); };
+$("#closeImport").onclick=()=>$("#importModal").classList.remove("on");
+$("#runImport").onclick=importNow;
+async function importNow(){
+  const raw=$("#importText").value.trim();
+  if(!raw){ $("#importModal").classList.remove("on"); return; }
+  $("#runImport").textContent="Importing…";
+  let items=null;
+  if(paReady()&&navigator.onLine){
+    setPA("thinking");
+    try{ const r=parseLooseJSON(await callPA(SYS_IMPORT,"Today is "+localKey()+".\nDump:\n"+raw,2000)); if(r&&Array.isArray(r.tasks)) items=r.tasks; setPA("ready"); }
+    catch(e){ paError(e); }
+  }
+  if(!items) items=raw.split(/\n+/).map(s=>s.replace(/^[\s\-\*•◦☐□✓✔]+/,"").trim()).filter(s=>s.length>1).map(s=>({text:s}));
+  const base=Date.now(); let n=0;
+  for(const it of items){
+    if(!it||!it.text||!String(it.text).trim()) continue;
+    const t={id:uid(),text:String(it.text).trim(),createdAt:base+n,updatedAt:base+n,due:(it.due&&/^\d{4}-\d{2}-\d{2}$/.test(it.due))?it.due:null,important:it.important===true,done:false,completedAt:null,bucket:it.bucket==="someday"?"someday":"active",deleted:false};
+    if(it.domain&&String(it.domain).trim()) t.domain=String(it.domain).trim();
+    state.tasks.push(t); n++;
+  }
+  saveTasks(); render(); queueSync(); queuePrioritize();
+  $("#importModal").classList.remove("on"); $("#importText").value=""; $("#runImport").textContent="Import";
+  showToast("⇪ Imported "+n+" task"+(n===1?"":"s"),null,null);
+}
 function updateSyncInfo(){ $("#syncInfo").textContent=state.lastSync?"Last synced "+new Date(state.lastSync).toLocaleString():"Not synced yet."; }
 
 /* Claude PA */
@@ -519,6 +620,7 @@ const SYS_PRIORITIZE=`You are a personal assistant prioritizing ONE user's tasks
 const SYS_BRIEF=`You are a personal assistant giving ONE user a short daily briefing (work + personal). Input is a JSON task list. Return ONLY JSON, no prose, no fences: {"summary":"<2-3 sentences: what to do today and roughly how much time>","focus":[{"id":"<id>","action":"<=12 words","minutes":<int>}],"skip":["<id>"]}. Pick the 3-5 things that matter most today. A task with pinned:true is the user's chosen #1 for today — put it first in focus and build the plan around it. Realistic about total time. Direct and encouraging.`;
 const SYS_WEEKLY=`You are drafting a brief weekly status update the user will paste into an email to their manager. Input is JSON with "completed" (tasks finished in the last 7 days) and "inProgress" (current open tasks, highest priority first). Write in the user's first-person voice: concise, confident, professional. Output ONLY the email body to paste — no subject, no greeting, no sign-off, no preamble. Use two short labeled sections: what got done this week (from completed), and current focus / what's next (from inProgress — lead with important or due-soon items). Tight bullets, group related items, only real items from the input, never invent. If a section is empty, say so in one short honest line.`;
 const SYS_INGEST=`You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {"text":"<clean concise task title, filler words removed>","due":"<YYYY-MM-DD or null>","important":<true|false>,"domain":"<short area label or null>","bucket":"<active|someday>"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today (tomorrow, tonight, next Monday become a date; if only a clock time is mentioned, use today). Set important:true only if the user signals urgency or importance. Infer domain only if obvious (e.g. Home, Work, Health, Errands, Finance); else null. Use bucket "someday" only for clearly vague someday/maybe ideas; else "active". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged.`;
+const SYS_IMPORT=`You convert ONE pasted dump of personal to-do lists (from Apple Notes, Google Keep, etc.) into structured tasks. Input: today's date + the raw dump (may contain list titles, day names, emoji, checkboxes, mixed formatting). Return ONLY JSON, no prose, no fences: {"tasks":[{"text":"<concise title>","due":"<YYYY-MM-DD or null>","important":<true|false>,"domain":"<label or null>","bucket":"<active|someday>"}]}. One entry per real to-do. Skip headings, blank lines, and completed-looking items (checked boxes, strikethrough). Resolve weekday names to the NEXT occurrence of that day. Keep times in the title if present. Infer domain from list titles when obvious.`;
 function paReady(){ return !!(state.config.proxyUrl&&state.config.appSecret); }
 function aiTaskPayload(){ return state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket,pinned:t.pinnedFor===localKey()})); }
 let paErrToasted=false;
@@ -646,7 +748,7 @@ addEventListener("focus",()=>{ if(canHover&&document.activeElement===document.bo
 addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey)&&(e.key==="j"||e.key==="J")){ e.preventDefault(); const i=$("#captureInput"); i.scrollIntoView({block:"start",behavior:"smooth"}); i.focus(); } });
 if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(console.error));
 
-render();
+applyTheme();
 (async()=>{ if(state.config.token) await syncNow(); else setSync("local"); generateBrief(false); })();
 if(paReady()) setPA("ready");
 if(canHover) $("#captureInput").focus();
