@@ -209,6 +209,39 @@
   .task.one{border-color:#54481f}
   .rank.one{background:linear-gradient(180deg,var(--star),#dfb13b);min-width:auto;padding:0 8px}
 
+  /* month view */
+  .mnav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .mnav .mtitle{flex:1;text-align:center;font-weight:680;font-size:16px}
+  .mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:16px}
+  .mdow{text-align:center;font-size:10.5px;color:var(--faint);padding:2px 0;font-weight:700}
+  .mcell{position:relative;height:52px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;transition:.12s}
+  .mcell:active{transform:scale(.94)}
+  .mcell.blank{background:none;border:none;cursor:default}
+  .mcell .mnum{font-size:12.5px;color:var(--dim);line-height:1}
+  .mcell.tdy{border-color:var(--accent)}
+  .mcell.tdy .mnum{color:var(--accent);font-weight:800}
+  .mcell.sel{background:var(--panel3);border-color:var(--line2)}
+  .mcount{min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:#0b0e16;
+    font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1}
+  .mcell.late .mcount{background:var(--bad);color:#fff}
+  .mdone{font-size:10px;color:var(--good);line-height:1}
+  .dayhdr .chipbtn{font-size:11px;padding:5px 10px}
+
+  /* all view */
+  .searchbar{width:100%;background:var(--panel);border:1.5px solid var(--line);color:var(--text);font-size:15px;
+    padding:12px 14px;border-radius:12px;outline:none;margin-bottom:10px}
+  .searchbar:focus{border-color:var(--accent)}
+  .searchbar::placeholder{color:var(--faint)}
+  .domchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+  .domchip{background:var(--panel2);border:1px solid var(--line);color:var(--dim);font-size:12px;padding:6px 11px;border-radius:999px;cursor:pointer}
+  .domchip.on{color:var(--text);border-color:var(--accent);background:var(--accentdim)}
+
+  /* capture-to-date chip */
+  .capdue{display:flex;align-items:center;gap:8px;margin:-6px 2px 12px;font-size:12.5px;color:var(--accent)}
+  .capdue button{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:2px}
+  .detail .qd{display:flex;gap:6px;flex-wrap:wrap}
+
   /* light "playful" theme (per-device, ⚙ → Theme) */
   body.light{
     --bg:#f4f1ea; --bg2:#faf8f2; --panel:#ffffff; --panel2:#f3f0e8; --panel3:#eae6da;
@@ -245,12 +278,14 @@
     <input id="captureInput" placeholder="What needs doing? Type & press Enter…" enterkeyhint="done">
     <button type="submit" aria-label="Add">＋</button>
   </form>
+  <div id="capDue" class="capdue" hidden><span id="capDueLbl"></span><button type="button" id="capDueX" aria-label="Clear date">✕</button></div>
 
   <div class="tabs" id="tabs">
     <button data-view="today" class="on">Today <span class="count" id="c-today"></span></button>
     <button data-view="week">Week <span class="count" id="c-week"></span></button>
-    <button data-view="someday">Someday <span class="count" id="c-someday"></span></button>
-    <button data-view="history">History</button>
+    <button data-view="month">Month</button>
+    <button data-view="all">All <span class="count" id="c-all"></span></button>
+    <button data-view="history">Done</button>
   </div>
 
   <div id="briefArea"></div>
@@ -333,7 +368,8 @@ let state={
   tasks: load(K_TASKS, []),
   config: load(K_CFG, {token:"",gistId:"",proxyUrl:"",appSecret:""}),
   brief: load(K_BRIEF, null),
-  view:"today", openId:null, lastSync:0
+  view:"today", openId:null, lastSync:0,
+  monthCursor:null, selDay:null, q:"", domFilter:"", captureDue:null
 };
 
 /* storage */
@@ -347,9 +383,21 @@ const $=s=>document.querySelector(s);
 function addTask(text){
   text=text.trim(); if(!text) return;
   const now=Date.now(); const id=uid();
-  state.tasks.push({id,text,createdAt:now,updatedAt:now,due:null,important:false,done:false,completedAt:null,bucket:"active",deleted:false});
+  state.tasks.push({id,text,createdAt:now,updatedAt:now,due:state.captureDue||null,important:false,done:false,completedAt:null,bucket:"active",deleted:false});
+  if(state.captureDue) clearCaptureDue();
   saveTasks(); render(); queueSync();
   if(paReady()&&looksIngestable(text)) runIngest(id,text); else queuePrioritize();
+}
+function setCaptureDue(key){
+  state.captureDue=key;
+  $("#capDue").hidden=false;
+  $("#capDueLbl").textContent="→ due "+new Date(key+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+  const i=$("#captureInput"); i.placeholder="Add a task for that day…";
+  i.scrollIntoView({block:"start",behavior:"smooth"}); i.focus();
+}
+function clearCaptureDue(){
+  state.captureDue=null; $("#capDue").hidden=true;
+  $("#captureInput").placeholder="What needs doing? Type & press Enter…";
 }
 function mutate(id,fn){ const t=state.tasks.find(x=>x.id===id); if(!t) return; fn(t); t.updatedAt=Date.now(); saveTasks(); render(); queueSync(); }
 
@@ -415,6 +463,7 @@ function taskHTML(t,rank){
     </div>
     <div class="detail">
       <div class="editline"><input type="text" data-act="edit" value="${esc(t.text)}"><input type="date" data-act="due" value="${t.due||""}"></div>
+      <div class="editline"><input type="text" data-act="domain" value="${esc(t.domain||"")}" placeholder="Domain (Home, Work…)"><span class="qd"><button class="chipbtn" data-act="dueT">Today</button><button class="chipbtn" data-act="dueM">Tmrw</button><button class="chipbtn" data-act="dueX">No date</button></span></div>
       <div class="ctrls"><button class="chipbtn" data-act="pin">${pinLbl}</button><button class="chipbtn" data-act="move">${move}</button><button class="chipbtn del" data-act="del">🗑 Delete</button></div>
     </div></li>`;
 }
@@ -455,6 +504,57 @@ function wrapHTML(){
   return `<div class="wrapup"><div class="bh"><b>🌇 Day wrap-up — ${doneN} done today</b><button class="mini" id="wrapDismiss">Done</button></div>${inner}</div>`;
 }
 const DAY_EMOJI={Monday:"🚗",Tuesday:"🦁",Wednesday:"🥑",Thursday:"🦋",Friday:"🎟️",Saturday:"🌸",Sunday:"☀️"};
+function monthCursor(){ if(!state.monthCursor){ const n=new Date(); state.monthCursor={y:n.getFullYear(),m:n.getMonth()}; } return state.monthCursor; }
+function monthHTML(){
+  const {y,m}=monthCursor();
+  const first=new Date(y,m,1), startDow=first.getDay(), daysIn=new Date(y,m+1,0).getDate();
+  const todayKey=localKey();
+  const openBy={}, doneBy={};
+  state.tasks.forEach(t=>{
+    if(t.deleted) return;
+    if(!t.done&&t.due) (openBy[t.due]=openBy[t.due]||[]).push(t);
+    else if(t.done&&t.completedAt){ const k=localKey(t.completedAt); (doneBy[k]=doneBy[k]||[]).push(t); }
+  });
+  const monthName=first.toLocaleDateString(undefined,{month:"long",year:"numeric"});
+  let cells=["S","M","T","W","T","F","S"].map(d=>`<div class="mdow">${d}</div>`).join("");
+  for(let i=0;i<startDow;i++) cells+=`<div class="mcell blank"></div>`;
+  for(let d=1;d<=daysIn;d++){
+    const key=y+"-"+String(m+1).padStart(2,"0")+"-"+String(d).padStart(2,"0");
+    const n=(openBy[key]||[]).length, dn=(doneBy[key]||[]).length;
+    const cls=["mcell",key===todayKey?"tdy":"",key===state.selDay?"sel":"",(n&&key<todayKey)?"late":""].filter(Boolean).join(" ");
+    cells+=`<div class="${cls}" data-mday="${key}"><span class="mnum">${d}</span>${n?`<span class="mcount">${n}</span>`:(dn?`<span class="mdone">✓</span>`:"")}</div>`;
+  }
+  let html=`<div class="mnav"><button class="iconbtn" data-mnav="-1" aria-label="Previous month">‹</button><div class="mtitle">${monthName}</div><button class="iconbtn" data-mnav="1" aria-label="Next month">›</button><button class="chipbtn" data-mnav="0">today</button></div><div class="mgrid">${cells}</div>`;
+  const prefix=y+"-"+String(m+1).padStart(2,"0");
+  const sel=(state.selDay&&state.selDay.startsWith(prefix))?state.selDay:null;
+  if(sel){
+    const dayOpen=(openBy[sel]||[]).slice().sort((a,b)=>effScore(b)-effScore(a));
+    const dayDone=state.tasks.filter(t=>!t.deleted&&t.done&&t.due===sel);
+    const dLabel=new Date(sel+"T00:00:00").toLocaleDateString(undefined,{weekday:"long",month:"short",day:"numeric"});
+    html+=`<div class="dayhdr"><h3>${dLabel}</h3><span class="cnt">${dayOpen.length} open</span><div class="ln"></div><button class="chipbtn" data-addfor="${sel}">＋ add here</button></div>`;
+    html+=(dayOpen.length||dayDone.length)
+      ?`<ul class="list">${dayOpen.map(t=>taskHTML(t,null)).join("")}${dayDone.map(t=>taskHTML(t,null)).join("")}</ul>`
+      :`<div class="empty">Nothing on this day.</div>`;
+  } else html+=`<div class="empty">Tap a day to see or add its tasks.</div>`;
+  return html;
+}
+function allHTML(act,some){
+  const q=(state.q||"").toLowerCase();
+  const domains=[...new Set(state.tasks.filter(t=>!t.deleted&&t.domain).map(t=>t.domain))].sort();
+  const match=t=>(!q||t.text.toLowerCase().includes(q)||(t.domain||"").toLowerCase().includes(q))&&(!state.domFilter||t.domain===state.domFilter);
+  const a=act.filter(match), s=some.filter(match);
+  const d=q?state.tasks.filter(t=>!t.deleted&&t.done&&match(t)).sort((x,z)=>(z.completedAt||0)-(x.completedAt||0)).slice(0,20):[];
+  const chips=domains.length?`<div class="domchips"><button class="domchip${!state.domFilter?" on":""}" data-dom="">All</button>${domains.map(dm=>`<button class="domchip${state.domFilter===dm?" on":""}" data-dom="${esc(dm)}">${esc(dm)}</button>`).join("")}</div>`:"";
+  let html=`<input id="qInput" class="searchbar" placeholder="🔎 Search all tasks…" value="${esc(state.q||"")}">${chips}`;
+  html+=`<div class="dayhdr"><h3>Active</h3><span class="cnt">${a.length}</span><div class="ln"></div></div>`;
+  html+=a.length?`<ul class="list">${a.map(t=>taskHTML(t,null)).join("")}</ul>`:`<div class="empty">${q||state.domFilter?"No matches.":"Nothing active. 🎉"}</div>`;
+  html+=`<div class="dayhdr"><h3>Someday</h3><span class="cnt">${s.length}</span><div class="ln"></div></div>`;
+  html+=s.length?`<ul class="list">${s.map(t=>taskHTML(t,null)).join("")}</ul>`:`<div class="empty">Backlog is empty.</div>`;
+  if(d.length) html+=`<div class="dayhdr"><h3>Done</h3><span class="cnt">${d.length}</span><div class="ln"></div></div><ul class="list">${d.map(t=>taskHTML(t,null)).join("")}</ul>`;
+  return html;
+}
+let qFocus=false;
+function restoreSearch(){ if(!qFocus) return; qFocus=false; const i=$("#qInput"); if(i){ i.focus(); const v=i.value; try{ i.setSelectionRange(v.length,v.length); }catch(e){} } }
 function weekHTML(act){
   if(!act.length) return `<div class="empty">No active tasks. 🎉</div>`;
   const light=document.body.classList.contains("light");
@@ -497,8 +597,8 @@ function render(){
   const act=activeOpen(), some=somedayList();
   $("#c-today").textContent=act.length?"("+Math.min(act.length,5)+")":"";
   $("#c-week").textContent=act.length?"("+act.length+")":"";
-  $("#c-someday").textContent=some.length?"("+some.length+")":"";
-  $("#title").textContent=({today:"Today",week:"This Week",someday:"Someday",history:"History"})[state.view];
+  $("#c-all").textContent=(act.length+some.length)?"("+(act.length+some.length)+")":"";
+  $("#title").textContent=({today:"Today",week:"This Week",month:"Month",all:"All Tasks",history:"Done"})[state.view];
 
   // PA pill visibility
   const paOn=!!(state.config.proxyUrl&&state.config.appSecret);
@@ -514,23 +614,30 @@ function render(){
 
   const c=$("#content");
   if(state.view==="history"){ c.innerHTML=historyHTML(); return; }
-  let items=[], rows="";
-  if(state.view==="today"){
-    items=act.slice(0,5); rows=items.map((t,i)=>taskHTML(t,i+1)).join("");
-    const dt=doneTodayList(); if(dt.length) rows+=dt.map(t=>taskHTML(t,null)).join("");
-    if(!items.length&&!dt.length) rows=`<div class="empty">Nothing yet. Capture your first task above 👆</div>`;
-    else if(act.length>5) rows+=`<div class="empty">+${act.length-5} more in This Week</div>`;
-  } else if(state.view==="week"){
-    c.innerHTML=weekHTML(act); return;
-  } else {
-    items=some; rows=items.length?items.map(t=>taskHTML(t,null)).join(""):`<div class="empty">Backlog is empty.</div>`;
-  }
+  if(state.view==="week"){ c.innerHTML=weekHTML(act); return; }
+  if(state.view==="month"){ c.innerHTML=monthHTML(); return; }
+  if(state.view==="all"){ c.innerHTML=allHTML(act,some); restoreSearch(); return; }
+  const items=act.slice(0,5);
+  let rows=items.map((t,i)=>taskHTML(t,i+1)).join("");
+  const dt=doneTodayList(); if(dt.length) rows+=dt.map(t=>taskHTML(t,null)).join("");
+  if(!items.length&&!dt.length) rows=`<div class="empty">Nothing yet. Capture your first task above 👆</div>`;
+  else if(act.length>5) rows+=`<div class="empty">+${act.length-5} more in This Week</div>`;
   c.innerHTML=`<ul class="list">${rows}</ul>`;
 }
 
 /* events */
 $("#content").addEventListener("click",e=>{
   const wk=e.target.closest("#weekBtn"); if(wk){ openWeek(); return; }
+  const mn=e.target.closest("[data-mnav]");
+  if(mn){
+    const d=parseInt(mn.dataset.mnav,10), cur=monthCursor();
+    if(d===0){ const n=new Date(); state.monthCursor={y:n.getFullYear(),m:n.getMonth()}; state.selDay=localKey(); }
+    else { let mm=cur.m+d, yy=cur.y; if(mm<0){mm=11;yy--;} if(mm>11){mm=0;yy++;} state.monthCursor={y:yy,m:mm}; }
+    render(); return;
+  }
+  const md=e.target.closest("[data-mday]"); if(md){ state.selDay=state.selDay===md.dataset.mday?null:md.dataset.mday; render(); return; }
+  const af=e.target.closest("[data-addfor]"); if(af){ setCaptureDue(af.dataset.addfor); return; }
+  const dc=e.target.closest("[data-dom]"); if(dc){ state.domFilter=dc.dataset.dom; render(); return; }
   const li=e.target.closest(".task"); if(!li) return;
   const id=li.dataset.id, act=e.target.closest("[data-act]")?.dataset.act;
   if(act==="done"){
@@ -541,12 +648,22 @@ $("#content").addEventListener("click",e=>{
   else if(act==="star"){ mutate(id,t=>t.important=!t.important); queuePrioritize(); }
   else if(act==="open"){ state.openId=state.openId===id?null:id; render(); }
   else if(act==="pin") pinTask(id,localKey());
+  else if(act==="dueT"){ mutate(id,t=>t.due=localKey()); queuePrioritize(); }
+  else if(act==="dueM"){ mutate(id,t=>t.due=tomorrowKey()); queuePrioritize(); }
+  else if(act==="dueX"){ mutate(id,t=>t.due=null); queuePrioritize(); }
   else if(act==="move") mutate(id,t=>t.bucket=t.bucket==="active"?"someday":"active");
   else if(act==="del"){ mutate(id,t=>t.deleted=true); state.openId=null; showToast("Deleted","Undo",()=>mutate(id,t=>t.deleted=false)); }
 });
 $("#content").addEventListener("change",e=>{ const id=e.target.closest(".task")?.dataset.id; if(id&&e.target.dataset.act==="due"){ mutate(id,t=>t.due=e.target.value||null); queuePrioritize(); } });
 $("#content").addEventListener("keydown",e=>{ if(e.target.dataset.act==="edit"&&e.key==="Enter"){ e.preventDefault(); e.target.blur(); } });
-$("#content").addEventListener("blur",e=>{ if(e.target.dataset.act==="edit"){ const id=e.target.closest(".task")?.dataset.id; const v=e.target.value.trim(); if(id&&v) mutate(id,t=>t.text=v); } },true);
+$("#content").addEventListener("blur",e=>{
+  const id=e.target.closest(".task")?.dataset.id; if(!id) return;
+  const v=e.target.value.trim();
+  if(e.target.dataset.act==="edit"&&v) mutate(id,t=>t.text=v);
+  else if(e.target.dataset.act==="domain") mutate(id,t=>{ if(v) t.domain=v; else delete t.domain; });
+},true);
+$("#content").addEventListener("input",e=>{ if(e.target.id==="qInput"){ state.q=e.target.value; qFocus=true; render(); } });
+$("#capDueX").onclick=clearCaptureDue;
 
 $("#briefArea").addEventListener("click",e=>{
   if(e.target.closest("#getBrief")||e.target.closest("#refreshBrief")){ generateBrief(true); return; }
@@ -649,7 +766,7 @@ async function runIngest(id, raw){
     const t=state.tasks.find(x=>x.id===id);
     if(out&&t&&!t.deleted&&t.updatedAt===stamp){
       if(out.text&&String(out.text).trim()) t.text=String(out.text).trim();
-      if(out.due&&/^\d{4}-\d{2}-\d{2}$/.test(out.due)) t.due=out.due;
+      if(out.due&&!t.due&&/^\d{4}-\d{2}-\d{2}$/.test(out.due)) t.due=out.due;
       if(typeof out.important==="boolean") t.important=out.important;
       if(out.domain&&String(out.domain).trim()&&String(out.domain).toLowerCase()!=="null") t.domain=String(out.domain).trim();
       if(out.bucket==="someday") t.bucket="someday";
