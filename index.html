@@ -16,7 +16,7 @@
     --bg:#0e0f13; --bg2:#101218; --panel:#171922; --panel2:#1d2030; --panel3:#222637;
     --line:#262a38; --line2:#2f3447;
     --text:#e9ebf2; --dim:#969cad; --faint:#666c7e;
-    --accent:#7c8cf8; --accent2:#9a8bff; --accentdim:#7c8cf826;
+    --accent:#8a76f9; --accent2:#a78bfa; --accentdim:#8a76f926;
     --good:#43d18a; --warn:#f5b955; --bad:#f4796b; --star:#f6cf63;
     --pa:#b69bff; --padim:#b69bff1f;
     --r:16px; --rs:11px;
@@ -67,7 +67,7 @@
   .capture input::placeholder{color:var(--faint)}
   .capture input:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--accentdim),var(--shadow)}
   .capture button{position:absolute;right:8px;top:50%;transform:translateY(-50%);
-    width:40px;height:40px;background:linear-gradient(180deg,var(--accent),#6675e8);border:none;color:#0b0e16;
+    width:40px;height:40px;background:linear-gradient(180deg,var(--accent),#6f5be8);border:none;color:#0b0e16;
     font-weight:800;font-size:20px;border-radius:11px;cursor:pointer;line-height:1}
   .capture button:active{transform:translateY(-50%) scale(.93)}
 
@@ -123,7 +123,7 @@
   .txt{word-break:break-word;font-size:15.5px}
   .task.done .txt{text-decoration:line-through;color:var(--faint)}
   .rank{display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:21px;padding:0 5px;
-    background:linear-gradient(180deg,var(--accent),#6675e8);color:#0b0e16;border-radius:7px;font-size:12px;font-weight:800;
+    background:linear-gradient(180deg,var(--accent),#6f5be8);color:#0b0e16;border-radius:7px;font-size:12px;font-weight:800;
     margin-right:9px;vertical-align:1px}
   .why{font-size:12px;color:var(--pa);margin-top:5px;opacity:.92;display:flex;gap:5px;align-items:center}
   .why::before{content:"✦";font-size:10px}
@@ -182,7 +182,7 @@
   .sheet textarea{width:100%;height:165px;background:var(--bg);border:1px solid var(--line2);color:var(--text);padding:12px;border-radius:9px;font-size:14px;resize:vertical;font-family:inherit}
   .sheet .actions{display:flex;gap:8px;margin-top:18px}
   .sheet .actions button{flex:1;padding:12px;border-radius:10px;border:none;font-weight:700;font-size:14px;cursor:pointer}
-  .btn-pri{background:linear-gradient(180deg,var(--accent),#6675e8);color:#0b0e16}
+  .btn-pri{background:linear-gradient(180deg,var(--accent),#6f5be8);color:#0b0e16}
   .btn-sec{background:var(--panel2);color:var(--text);border:1px solid var(--line2)!important}
   .help{font-size:12px;color:var(--faint);margin-top:10px;line-height:1.55}
   .help a{color:var(--accent)}
@@ -242,13 +242,51 @@
   .capdue button{background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px;padding:2px}
   .detail .qd{display:flex;gap:6px;flex-wrap:wrap}
 
+  /* task card language: icon tile, priority pill, time */
+  .tile{flex:none;width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-top:-2px}
+  .ttime{font-size:12px;color:var(--dim);margin-top:3px}
+  .prio{flex:none;font-size:10.5px;font-weight:800;padding:4px 9px;border-radius:999px;letter-spacing:.3px;margin-top:3px}
+  .prio.high{color:#ff8a80;background:#ef444422}
+  .prio.med{color:#fbbf24;background:#f59e0b1e}
+  .prio.low{color:#4ade80;background:#22c55e1c}
+  body.light .prio.high{color:#b91c1c;background:#fee2e2}
+  body.light .prio.med{color:#92400e;background:#fef3c7}
+  body.light .prio.low{color:#166534;background:#dcfce7}
+
+  /* AI insights chips */
+  .insights{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;color:var(--pa);font-size:13px}
+  .ichip{font-size:11.5px;padding:5px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+  .ichip.red{color:#ff8a80;border-color:#5a2a2a}
+  .ichip.amber{color:#fbbf24;border-color:#4a3d24}
+  .ichip.green{color:var(--good);border-color:#234a31}
+  body.light .ichip.red{color:#b91c1c;border-color:#f0c4c4}
+  body.light .ichip.amber{color:#92400e;border-color:#eadfb6}
+  body.light .ichip.green{color:#166534;border-color:#c2e5cc}
+
+  /* voice */
+  .micbtn{position:absolute;right:54px;top:50%;transform:translateY(-50%);width:38px;height:38px;border-radius:10px;background:none;border:none;font-size:17px;cursor:pointer;opacity:.7}
+  .micbtn:active{transform:translateY(-50%) scale(.9)}
+  .micbtn.listening{opacity:1;animation:pulse .9s infinite}
+  .capture input{padding-right:100px}
+  .donebadge{cursor:pointer}
+
+  /* mobile bottom nav */
+  #bnav{display:none;position:fixed;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--bg) 86%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom));justify-content:space-around;align-items:flex-end}
+  #bnav button{background:none;border:none;color:var(--dim);font-size:10.5px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 10px;border-radius:10px;cursor:pointer}
+  #bnav button .bi{font-size:18px;line-height:1}
+  #bnav button.on{color:var(--accent)}
+  #bnav .bfab{position:static;transform:none;opacity:1;width:52px;height:52px;border-radius:50%;background:linear-gradient(180deg,var(--accent),#6f5be8);font-size:22px;margin-top:-26px;box-shadow:var(--shadow);color:#fff}
+  #bnav .bfab:active{transform:scale(.92)}
+  #bnav .bfab.listening{animation:pulse .9s infinite}
+  @media(max-width:640px){ #bnav{display:flex} .tabs{display:none} .wrap{padding-bottom:130px} }
+
   /* light "playful" theme (per-device, ⚙ → Theme) */
   body.light{
-    --bg:#f4f1ea; --bg2:#faf8f2; --panel:#ffffff; --panel2:#f3f0e8; --panel3:#eae6da;
-    --line:#e4dfd2; --line2:#d3ccba; --text:#2c2b33; --dim:#6d6b76; --faint:#9a97a1;
-    --accentdim:#6c63ff22; --good:#1fa971; --warn:#b97f14; --bad:#d24f43; --star:#c9990e;
-    --shadow:0 1px 2px rgba(60,50,20,.08), 0 8px 24px rgba(60,50,20,.07);
-    background:linear-gradient(180deg,#faf8f2,#f4f1ea 40%);
+    --bg:#f3f4f9; --bg2:#f9fafc; --panel:#ffffff; --panel2:#eef0f6; --panel3:#e6e9f2;
+    --line:#e4e7f0; --line2:#d2d7e5; --text:#2a2b33; --dim:#6b6d78; --faint:#989aa6;
+    --accentdim:#8a76f922; --good:#1fa971; --warn:#b97f14; --bad:#d24f43; --star:#c9990e;
+    --shadow:0 1px 2px rgba(40,45,80,.06), 0 8px 24px rgba(40,45,80,.07);
+    background:linear-gradient(180deg,#f9fafc,#f3f4f9 40%);
   }
   body.light .capture input{background:#fff}
   body.light .check{border-color:#c4bfae}
@@ -268,7 +306,7 @@
 <div class="wrap">
   <header>
     <h1 id="title">Today</h1>
-    <span class="pill donebadge">Done today <b id="doneToday">0</b></span>
+    <span class="pill donebadge" id="doneBadge" title="Completed tasks">Done today <b id="doneToday">0</b></span>
     <span class="pill" id="paPill" data-s="ready" title="Claude PA">✨ <span id="paLabel">PA</span></span>
     <span class="pill" id="syncPill" data-s="local" title="Sync — tap for settings"><span class="dot"></span><span id="syncLabel">Local</span></span>
     <button class="iconbtn" id="gearBtn" title="Settings">⚙</button>
@@ -276,6 +314,7 @@
 
   <form class="capture" id="captureForm" autocomplete="off">
     <input id="captureInput" placeholder="What needs doing? Type & press Enter…" enterkeyhint="done">
+    <button type="button" class="micbtn" id="micBtn" aria-label="Add by voice">🎤</button>
     <button type="submit" aria-label="Add">＋</button>
   </form>
   <div id="capDue" class="capdue" hidden><span id="capDueLbl"></span><button type="button" id="capDueX" aria-label="Clear date">✕</button></div>
@@ -292,6 +331,14 @@
   <div id="banner"></div>
   <div id="content"></div>
 </div>
+
+<nav id="bnav">
+  <button data-view="today" class="on"><span class="bi">☀️</span><span>Today</span></button>
+  <button data-view="week"><span class="bi">📋</span><span>Week</span></button>
+  <button type="button" class="micbtn bfab" id="micFab" aria-label="Add by voice">🎤</button>
+  <button data-view="month"><span class="bi">📅</span><span>Month</span></button>
+  <button data-view="all"><span class="bi">🗂️</span><span>All</span></button>
+</nav>
 
 <!-- Settings -->
 <div class="modal" id="settingsModal">
@@ -431,6 +478,11 @@ const isStale=t=>staleDays(t)>=4;
 function isToday(ts){ return ts && new Date(ts).toDateString()===new Date().toDateString(); }
 function fmtMins(m){ if(!m||m<1) return null; if(m<60) return "~"+m+"m"; return "~"+(Math.round(m/30)/2)+"h"; }
 function localKey(ts){ const d=ts!=null?new Date(ts):new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function fmtTime(hm){ if(!hm||!/^\d{2}:\d{2}$/.test(hm)) return null; const p=hm.split(":"); const d=new Date(); d.setHours(+p[0],+p[1],0,0); return d.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}); }
+function tier(t){ const p=(typeof t.aiPriority==="number")?t.aiPriority:Math.min(score(t),100); return p>=70?"high":p>=40?"med":"low"; }
+const TIER_LABEL={high:"High",med:"Med",low:"Low"};
+const DOMAIN_STYLE={home:["🏠","#8a76f9"],work:["💼","#5b8def"],health:["🏋️","#22c55e"],errands:["🛒","#f59e0b"],shopping:["🛒","#f59e0b"],groceries:["🛒","#f59e0b"],finance:["💳","#10b981"],personal:["💜","#c084fc"],travel:["✈️","#38bdf8"],family:["👪","#fb7185"],social:["🎉","#fb7185"],fitness:["🏋️","#22c55e"]};
+function tileFor(t){ const s=DOMAIN_STYLE[(t.domain||"").toLowerCase()]||["📝","#8a76f9"]; return `<span class="tile" title="${esc(t.domain||"")}" style="background:${s[1]}22">${s[0]}</span>`; }
 
 function activeOpen(){ return state.tasks.filter(t=>!t.deleted&&!t.done&&t.bucket==="active").sort((a,b)=>effScore(b)-effScore(a)||a.createdAt-b.createdAt); }
 function somedayList(){ return state.tasks.filter(t=>!t.deleted&&!t.done&&t.bucket==="someday").sort((a,b)=>b.updatedAt-a.updatedAt); }
@@ -449,7 +501,6 @@ function taskHTML(t,rank){
   const eff=fmtMins(t.effortMins); if(eff) meta.push(`<span class="pillm eff">${eff}</span>`);
   if(!t.done&&isStale(t)) meta.push(`<span class="pillm stale">🕓 ${staleDays(t)}d</span>`);
   if(t.important) meta.push(`<span class="pillm imp">★</span>`);
-  if(t.domain) meta.push(`<span class="pillm dom">${esc(t.domain)}</span>`);
   const isOne=!t.done&&t.pinnedFor===localKey();
   const rankB=isOne?`<span class="rank one">🎯 #1</span>`:(rank&&!t.done)?`<span class="rank">${rank}</span>`:"";
   const why=(!t.done&&t.why)?`<div class="why">${esc(t.why)}</div>`:"";
@@ -458,7 +509,9 @@ function taskHTML(t,rank){
   return `<li class="task${t.done?" done":""}${(!t.done&&isStale(t))?" stale":""}${isOne?" one":""}${state.openId===t.id?" open":""}" data-id="${t.id}">
     <div class="row">
       <button class="check" data-act="done" aria-label="Done"></button>
-      <div class="body" data-act="open"><div class="txt">${rankB}${esc(t.text)}</div>${why}${meta.length?`<div class="meta">${meta.join("")}</div>`:""}</div>
+      ${tileFor(t)}
+      <div class="body" data-act="open"><div class="txt">${rankB}${esc(t.text)}</div>${(!t.done&&fmtTime(t.time))?`<div class="ttime">🕐 ${fmtTime(t.time)}</div>`:""}${why}${meta.length?`<div class="meta">${meta.join("")}</div>`:""}</div>
+      ${!t.done?`<span class="prio ${tier(t)}">${TIER_LABEL[tier(t)]}</span>`:""}
       <button class="star${t.important?" on":""}" data-act="star" aria-label="Important">${t.important?"★":"☆"}</button>
     </div>
     <div class="detail">
@@ -487,6 +540,21 @@ function historyHTML(){
   });
   html+=`<button class="weekbtn" id="weekBtn">📧 Generate weekly email</button>`;
   return html;
+}
+function insightsHTML(){
+  if(state.view!=="today") return "";
+  const act=activeOpen(), dn=doneTodayList().length;
+  if(!act.length&&!dn) return "";
+  const today=localKey();
+  const over=act.filter(t=>t.due&&t.due<today).length;
+  const hi=act.filter(t=>tier(t)==="high").length;
+  const dueT=act.filter(t=>t.due===today).length;
+  const chips=[];
+  if(over) chips.push(`<span class="ichip red">⚠ ${over} overdue</span>`);
+  if(hi) chips.push(`<span class="ichip red">${hi} high priority</span>`);
+  if(dueT) chips.push(`<span class="ichip amber">${dueT} due today</span>`);
+  if(dn) chips.push(`<span class="ichip green">✓ ${dn} done</span>`);
+  return chips.length?`<div class="insights">✦ ${chips.join("")}</div>`:"";
 }
 function wrapHTML(){
   if(state.view!=="today") return "";
@@ -605,7 +673,7 @@ function render(){
   $("#paPill").style.display=paOn?"inline-flex":"none";
 
   // brief
-  $("#briefArea").innerHTML=wrapHTML()+briefHTML();
+  $("#briefArea").innerHTML=insightsHTML()+wrapHTML()+briefHTML();
 
   // banner
   const banner=$("#banner");
@@ -673,7 +741,26 @@ $("#briefArea").addEventListener("click",e=>{
 });
 
 $("#captureForm").addEventListener("submit",e=>{ e.preventDefault(); const i=$("#captureInput"); addTask(i.value); i.value=""; i.focus(); });
-$("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(!b) return; state.view=b.dataset.view; state.openId=null; document.querySelectorAll("#tabs button").forEach(x=>x.classList.toggle("on",x===b)); render(); });
+function setView(v){ state.view=v; state.openId=null; document.querySelectorAll("#tabs button,#bnav button[data-view]").forEach(x=>x.classList.toggle("on",x.dataset.view===v)); render(); }
+$("#tabs").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b) setView(b.dataset.view); });
+$("#bnav").addEventListener("click",e=>{ const b=e.target.closest("button[data-view]"); if(b) setView(b.dataset.view); });
+$("#doneBadge").onclick=()=>setView("history");
+
+/* voice capture (Web Speech API — Chrome/Edge/Android; iOS Safari falls back to keyboard) */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function micState(on){ document.querySelectorAll(".micbtn").forEach(b=>b.classList.toggle("listening",on)); }
+function startVoice(){
+  if(!SR){ const i=$("#captureInput"); i.focus(); showToast("No in-app voice here — tap the keyboard's 🎤 instead",null,null); return; }
+  let done=false;
+  const r=new SR(); r.lang=navigator.language||"en-US"; r.interimResults=false; r.maxAlternatives=1;
+  micState(true);
+  r.onresult=ev=>{ done=true; const txt=ev.results[0][0].transcript; if(txt&&txt.trim()){ addTask(txt); showToast("🎤 "+txt.trim().slice(0,60),null,null); } };
+  r.onerror=ev=>{ done=true; showToast(ev.error==="not-allowed"?"Mic permission denied — allow it in the browser":"🎤 Didn't catch that — try again",null,null); };
+  r.onend=()=>{ micState(false); if(!done) showToast("🎤 Didn't catch that — try again",null,null); };
+  try{ r.start(); }catch(e){ micState(false); }
+}
+$("#micBtn").onclick=startVoice;
+$("#micFab").onclick=startVoice;
 
 /* weekly email */
 function weeklyText(done,active){
@@ -721,6 +808,7 @@ async function importNow(){
     if(!it||!it.text||!String(it.text).trim()) continue;
     const t={id:uid(),text:String(it.text).trim(),createdAt:base+n,updatedAt:base+n,due:(it.due&&/^\d{4}-\d{2}-\d{2}$/.test(it.due))?it.due:null,important:it.important===true,done:false,completedAt:null,bucket:it.bucket==="someday"?"someday":"active",deleted:false};
     if(it.domain&&String(it.domain).trim()) t.domain=String(it.domain).trim();
+    if(it.time&&/^\d{2}:\d{2}$/.test(it.time)) t.time=it.time;
     state.tasks.push(t); n++;
   }
   saveTasks(); render(); queueSync(); queuePrioritize();
@@ -736,8 +824,8 @@ function setPA(s,msg){ const p=$("#paPill"); if(!p) return; p.dataset.s=s; if(ms
 const SYS_PRIORITIZE=`You are a personal assistant prioritizing ONE user's tasks (work + personal). Input is a JSON task list (id, text, due YYYY-MM-DD or null, important, createdAt, bucket). Return ONLY JSON, no prose, no fences: {"tasks":[{"id":"<id>","priority":<1-100>,"effortMins":<int>,"why":"<=8 words"}]}. Higher priority = do sooner. Weigh due-date proximity, importance, how long it has sat, and obvious dependencies. Be decisive and realistic about effort.`;
 const SYS_BRIEF=`You are a personal assistant giving ONE user a short daily briefing (work + personal). Input is a JSON task list. Return ONLY JSON, no prose, no fences: {"summary":"<2-3 sentences: what to do today and roughly how much time>","focus":[{"id":"<id>","action":"<=12 words","minutes":<int>}],"skip":["<id>"]}. Pick the 3-5 things that matter most today. A task with pinned:true is the user's chosen #1 for today — put it first in focus and build the plan around it. Realistic about total time. Direct and encouraging.`;
 const SYS_WEEKLY=`You are drafting a brief weekly status update the user will paste into an email to their manager. Input is JSON with "completed" (tasks finished in the last 7 days) and "inProgress" (current open tasks, highest priority first). Write in the user's first-person voice: concise, confident, professional. Output ONLY the email body to paste — no subject, no greeting, no sign-off, no preamble. Use two short labeled sections: what got done this week (from completed), and current focus / what's next (from inProgress — lead with important or due-soon items). Tight bullets, group related items, only real items from the input, never invent. If a section is empty, say so in one short honest line.`;
-const SYS_INGEST=`You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {"text":"<clean concise task title, filler words removed>","due":"<YYYY-MM-DD or null>","important":<true|false>,"domain":"<short area label or null>","bucket":"<active|someday>"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today (tomorrow, tonight, next Monday become a date; if only a clock time is mentioned, use today). Set important:true only if the user signals urgency or importance. Infer domain only if obvious (e.g. Home, Work, Health, Errands, Finance); else null. Use bucket "someday" only for clearly vague someday/maybe ideas; else "active". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged.`;
-const SYS_IMPORT=`You convert ONE pasted dump of personal to-do lists (from Apple Notes, Google Keep, etc.) into structured tasks. Input: today's date + the raw dump (may contain list titles, day names, emoji, checkboxes, mixed formatting). Return ONLY JSON, no prose, no fences: {"tasks":[{"text":"<concise title>","due":"<YYYY-MM-DD or null>","important":<true|false>,"domain":"<label or null>","bucket":"<active|someday>"}]}. One entry per real to-do. Skip headings, blank lines, and completed-looking items (checked boxes, strikethrough). Resolve weekday names to the NEXT occurrence of that day. Keep times in the title if present. Infer domain from list titles when obvious.`;
+const SYS_INGEST=`You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {"text":"<clean concise task title, filler words removed>","due":"<YYYY-MM-DD or null>","time":"<HH:MM 24-hour or null>","important":<true|false>,"domain":"<short area label or null>","bucket":"<active|someday>"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today (tomorrow, tonight, next Monday become a date; if only a clock time is mentioned, use today). Extract a clock time into "time" (e.g. "2pm" -> "14:00") and REMOVE it from the title. Set important:true only if the user signals urgency or importance. Infer domain only if obvious (e.g. Home, Work, Health, Errands, Finance); else null. Use bucket "someday" only for clearly vague someday/maybe ideas; else "active". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged.`;
+const SYS_IMPORT=`You convert ONE pasted dump of personal to-do lists (from Apple Notes, Google Keep, etc.) into structured tasks. Input: today's date + the raw dump (may contain list titles, day names, emoji, checkboxes, mixed formatting). Return ONLY JSON, no prose, no fences: {"tasks":[{"text":"<concise title>","due":"<YYYY-MM-DD or null>","time":"<HH:MM 24-hour or null>","important":<true|false>,"domain":"<label or null>","bucket":"<active|someday>"}]}. One entry per real to-do. Skip headings, blank lines, and completed-looking items (checked boxes, strikethrough). Resolve weekday names to the NEXT occurrence of that day. Extract clock times into "time" and remove them from the title. Infer domain from list titles when obvious.`;
 function paReady(){ return !!(state.config.proxyUrl&&state.config.appSecret); }
 function aiTaskPayload(){ return state.tasks.filter(t=>!t.deleted&&!t.done).map(t=>({id:t.id,text:t.text,due:t.due,important:t.important,createdAt:t.createdAt,bucket:t.bucket,pinned:t.pinnedFor===localKey()})); }
 let paErrToasted=false;
@@ -767,6 +855,7 @@ async function runIngest(id, raw){
     if(out&&t&&!t.deleted&&t.updatedAt===stamp){
       if(out.text&&String(out.text).trim()) t.text=String(out.text).trim();
       if(out.due&&!t.due&&/^\d{4}-\d{2}-\d{2}$/.test(out.due)) t.due=out.due;
+      if(out.time&&/^\d{2}:\d{2}$/.test(out.time)) t.time=out.time;
       if(typeof out.important==="boolean") t.important=out.important;
       if(out.domain&&String(out.domain).trim()&&String(out.domain).toLowerCase()!=="null") t.domain=String(out.domain).trim();
       if(out.bucket==="someday") t.bucket="someday";
