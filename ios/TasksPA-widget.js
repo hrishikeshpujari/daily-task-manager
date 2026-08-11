@@ -14,8 +14,8 @@ const SECRET     = "PASTE-YOUR-PERSONAL-SECRET-HERE";               // your secr
 const APP_URL    = "https://hrishikeshpujari.github.io/daily-task-manager/";
 const TZ         = "America/Los_Angeles";
 
-// Her palette — day colors echo the iOS Reminders vibe.
-const BG = "#fdfbf6", TEXT = "#3a3742", DIM = "#8b8794", DONE = "#1fa971";
+// Ported from the web app's design system: warm parchment/ink, single brand accent.
+const BG = "#f9f7f2", TEXT = "#231f1a", DIM = "#847a71", DONE = "#2f7d52", BRAND = "#b82e4e";
 const DAY_STYLE = {
   Monday:    { c: "#e0443e", e: "🚗" },
   Tuesday:   { c: "#e78f2e", e: "🦁" },
@@ -44,9 +44,9 @@ async function fetchWeek() {
 
 const DOMAIN_EMOJI = { home:"🏠", work:"💼", health:"🏋️", errands:"🛒", shopping:"🛒", groceries:"🛒", finance:"💳", personal:"💜", travel:"✈️", family:"👪", social:"🎉", fitness:"🏋️" };
 function tierColor(t) {
-  if (t.important) return "#e0443e";
+  if (t.important) return "#bf3737";
   if (typeof t.aiPriority === "number")
-    return t.aiPriority >= 70 ? "#e0443e" : t.aiPriority >= 40 ? "#e78f2e" : "#3f9c48";
+    return t.aiPriority >= 70 ? "#bf3737" : t.aiPriority >= 40 ? "#a07417" : "#2f7d52";
   return DIM;
 }
 function fmtTime(hm) {
@@ -115,6 +115,10 @@ function build(data) {
     const d = head.addText(`✓ ${data.doneToday}`);
     d.font = Font.boldSystemFont(13);
     d.textColor = new Color(DONE);
+  } else {
+    const brandDot = head.addText("●");
+    brandDot.font = Font.systemFont(10);
+    brandDot.textColor = new Color(BRAND);
   }
   w.addSpacer(8);
 

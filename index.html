@@ -770,7 +770,7 @@ $("#briefArea").addEventListener("click",e=>{
   if(e.target.closest("#getBrief")||e.target.closest("#refreshBrief")){ generateBrief(true); return; }
   if(e.target.closest("#wrapDismiss")){ localStorage.setItem("dtm.wrapDone",JSON.stringify(localKey())); render(); return; }
   const wc=e.target.closest("[data-pin]"); if(wc){ pinTask(wc.dataset.pin,tomorrowKey()); showToast("🎯 Pinned for tomorrow",null,null); return; }
-  const f=e.target.closest("[data-focus]"); if(f){ state.view="today"; const el=document.querySelector(`.task[data-id="${f.dataset.focus}"]`); if(el){ el.style.transition="background .3s"; el.style.background="#23284a"; setTimeout(()=>el.style.background="",700); el.scrollIntoView({behavior:"smooth",block:"center"}); } }
+  const f=e.target.closest("[data-focus]"); if(f){ state.view="today"; const el=document.querySelector(`.task[data-id="${f.dataset.focus}"]`); if(el){ el.style.transition="background .3s"; el.style.background="var(--accentdim)"; setTimeout(()=>el.style.background="",700); el.scrollIntoView({behavior:"smooth",block:"center"}); } }
 });
 
 $("#captureForm").addEventListener("submit",e=>{ e.preventDefault(); const i=$("#captureInput"); addTask(i.value); i.value=""; i.focus(); });
