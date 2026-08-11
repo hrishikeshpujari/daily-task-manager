@@ -42,16 +42,36 @@ async function fetchWeek() {
   return null;
 }
 
+const DOMAIN_EMOJI = { home:"🏠", work:"💼", health:"🏋️", errands:"🛒", shopping:"🛒", groceries:"🛒", finance:"💳", personal:"💜", travel:"✈️", family:"👪", social:"🎉", fitness:"🏋️" };
+function tierColor(t) {
+  if (t.important) return "#e0443e";
+  if (typeof t.aiPriority === "number")
+    return t.aiPriority >= 70 ? "#e0443e" : t.aiPriority >= 40 ? "#e78f2e" : "#3f9c48";
+  return DIM;
+}
+function fmtTime(hm) {
+  if (!hm || !/^\d{2}:\d{2}$/.test(hm)) return null;
+  const h = +hm.slice(0, 2), m = hm.slice(3);
+  return (((h + 11) % 12) + 1) + ":" + m + (h >= 12 ? " PM" : " AM");
+}
 function addTaskLine(stack, t, size) {
   const row = stack.addStack();
   row.centerAlignContent();
-  const dot = row.addText(t.important ? "★ " : "○ ");
-  dot.font = Font.systemFont(size === "large" ? 12 : 11);
-  dot.textColor = new Color(t.important ? "#c9990e" : DIM);
-  const txt = row.addText((t.pinnedFor ? "🎯 " : "") + t.text);
+  const dot = row.addText(t.pinnedFor ? "🎯 " : "● ");
+  dot.font = Font.systemFont(size === "large" ? 11 : 10);
+  if (!t.pinnedFor) dot.textColor = new Color(tierColor(t));
+  const em = DOMAIN_EMOJI[(t.domain || "").toLowerCase()];
+  const txt = row.addText((em ? em + " " : "") + t.text);
   txt.font = Font.systemFont(size === "large" ? 13 : 12);
   txt.textColor = new Color(TEXT);
   txt.lineLimit = 1;
+  const tm = fmtTime(t.time);
+  if (tm) {
+    row.addSpacer(4);
+    const time = row.addText(tm);
+    time.font = Font.systemFont(size === "large" ? 11 : 10);
+    time.textColor = new Color(DIM);
+  }
   stack.addSpacer(3);
 }
 

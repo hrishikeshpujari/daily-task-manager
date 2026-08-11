@@ -20,7 +20,7 @@
 
 const GIST_FILE = "daily-tasks.json";
 
-const SYS_INGEST = `You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {"text":"<clean concise task title, filler words removed>","due":"<YYYY-MM-DD or null>","important":<true|false>,"domain":"<short area label or null>","bucket":"<active|someday>"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today (tomorrow, tonight, next Monday become a date; if only a clock time is mentioned, use today). Set important:true only if the user signals urgency or importance. Infer domain only if obvious (e.g. Home, Work, Health, Errands, Finance); else null. Use bucket "someday" only for clearly vague someday/maybe ideas; else "active". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged.`;
+const SYS_INGEST = `You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {"text":"<clean concise task title, filler words removed>","due":"<YYYY-MM-DD or null>","time":"<HH:MM 24-hour or null>","important":<true|false>,"domain":"<short area label or null>","bucket":"<active|someday>"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today (tomorrow, tonight, next Monday become a date; if only a clock time is mentioned, use today). Extract a clock time into "time" (e.g. "2pm" -> "14:00") and REMOVE it from the title. Set important:true only if the user signals urgency or importance. Infer domain only if obvious (e.g. Home, Work, Health, Errands, Finance); else null. Use bucket "someday" only for clearly vague someday/maybe ideas; else "active". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged.`;
 
 export default {
   async fetch(request, env) {
@@ -48,12 +48,13 @@ export default {
         if (!raw) return json({ error: "empty text" }, 400, cors);
         const today = localDateStr(body.tz || "America/Los_Angeles");
 
-        let fields = { text: raw, due: null, important: false, domain: null, bucket: "active" };
+        let fields = { text: raw, due: null, time: null, important: false, domain: null, bucket: "active" };
         try {
           const ai = parseLoose(await claude(env, SYS_INGEST, "Today is " + today + ". Raw capture:\n" + raw, 400));
           if (ai) {
             if (ai.text && String(ai.text).trim()) fields.text = String(ai.text).trim();
             if (ai.due && /^\d{4}-\d{2}-\d{2}$/.test(ai.due)) fields.due = ai.due;
+            if (ai.time && /^\d{2}:\d{2}$/.test(ai.time)) fields.time = ai.time;
             if (typeof ai.important === "boolean") fields.important = ai.important;
             if (ai.domain && String(ai.domain).trim() && String(ai.domain).toLowerCase() !== "null") fields.domain = String(ai.domain).trim();
             if (ai.bucket === "someday") fields.bucket = "someday";
@@ -68,6 +69,7 @@ export default {
           bucket: fields.bucket, deleted: false,
         };
         if (fields.domain) task.domain = fields.domain;
+        if (fields.time) task.time = fields.time;
 
         const { gistId, tasks } = await loadTasks(env, user);
         tasks.push(task);
@@ -226,6 +228,8 @@ function slim(t) {
   if (t.pinnedFor) o.pinnedFor = t.pinnedFor;
   if (t.domain) o.domain = t.domain;
   if (t.due) o.due = t.due;
+  if (t.time) o.time = t.time;
+  if (typeof t.aiPriority === "number") o.aiPriority = t.aiPriority;
   if (typeof t.effortMins === "number") o.effortMins = t.effortMins;
   return o;
 }

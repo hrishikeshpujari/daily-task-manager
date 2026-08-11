@@ -84,6 +84,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 if (text.isNotEmpty()) t.put("text", text)
                 val due = out.optString("due")
                 if (Regex("^\\d{4}-\\d{2}-\\d{2}$").matches(due)) t.put("due", due)
+                val time = out.optString("time")
+                if (Regex("^\\d{2}:\\d{2}$").matches(time)) t.put("time", time)
                 if (out.has("important")) t.put("important", out.optBoolean("important"))
                 val domain = out.optString("domain").trim()
                 if (domain.isNotEmpty() && domain.lowercase() != "null") t.put("domain", domain)
@@ -130,7 +132,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     companion object {
         // Same prompts as the web app, so behavior agrees no matter where a task was added.
         const val SYS_PRIORITIZE = "You are a personal assistant prioritizing ONE user's tasks (work + personal). Input is a JSON task list (id, text, due YYYY-MM-DD or null, important, createdAt, bucket). Return ONLY JSON, no prose, no fences: {\"tasks\":[{\"id\":\"<id>\",\"priority\":<1-100>,\"effortMins\":<int>,\"why\":\"<=8 words\"}]}. Higher priority = do sooner. Weigh due-date proximity, importance, how long it has sat, and obvious dependencies. Be decisive and realistic about effort. A task with pinned:true is the user's chosen #1 for today."
-        const val SYS_INGEST = "You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {\"text\":\"<clean concise task title, filler words removed>\",\"due\":\"<YYYY-MM-DD or null>\",\"important\":<true|false>,\"domain\":\"<short area label or null>\",\"bucket\":\"<active|someday>\"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today. Set important:true only if the user signals urgency. Infer domain only if obvious; else null. Use bucket \"someday\" only for clearly vague someday/maybe ideas; else \"active\". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged."
+        const val SYS_INGEST = "You clean up ONE raw task capture (often messy voice-to-text) into a structured task. Input is the raw string plus today's date. Return ONLY JSON, no prose, no fences: {\"text\":\"<clean concise task title, filler words removed>\",\"due\":\"<YYYY-MM-DD or null>\",\"time\":\"<HH:MM 24-hour or null>\",\"important\":<true|false>,\"domain\":\"<short area label or null>\",\"bucket\":\"<active|someday>\"}. Strip filler (um, uh, like, so, basically). Resolve relative dates against today. Extract a clock time into \"time\" (e.g. \"2pm\" -> \"14:00\") and REMOVE it from the title. Set important:true only if the user signals urgency. Infer domain only if obvious; else null. Use bucket \"someday\" only for clearly vague someday/maybe ideas; else \"active\". Stay faithful to intent — if the input is already a clean short task, return it nearly unchanged."
 
         fun enqueueOnce(ctx: Context, withPa: Boolean) {
             val req = OneTimeWorkRequestBuilder<SyncWorker>()

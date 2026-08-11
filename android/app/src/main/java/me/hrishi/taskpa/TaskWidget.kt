@@ -54,6 +54,26 @@ class TaskWidget : AppWidgetProvider() {
             for (id in ids) mgr.updateAppWidget(id, build(context))
         }
 
+        /** Priority tier color for the leading dot (matches the web app's High/Med/Low). */
+        private fun tierColor(t: org.json.JSONObject): Int {
+            if (t.optBoolean("important")) return 0xFFEF4444.toInt()
+            if (t.has("aiPriority") && !t.isNull("aiPriority")) {
+                val p = t.optInt("aiPriority")
+                return when { p >= 70 -> 0xFFEF4444.toInt(); p >= 40 -> 0xFFF59E0B.toInt(); else -> 0xFF22C55E.toInt() }
+            }
+            return 0xFF969CAD.toInt()
+        }
+
+        /** "14:30" -> "2:30 PM" for the sub line; empty when the task has no time. */
+        private fun timeChip(t: org.json.JSONObject): String {
+            val hm = if (t.isNull("time")) "" else t.optString("time", "")
+            if (!Regex("^\\d{2}:\\d{2}$").matches(hm)) return ""
+            return try {
+                val d = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).parse(hm)!!
+                "🕐 " + java.text.SimpleDateFormat("h:mm a", java.util.Locale.US).format(d)
+            } catch (e: Exception) { "" }
+        }
+
         /** Short day label for a task's due date: "⚠ late", "Today", "Tmrw", or "Thu". */
         private fun dayChip(t: org.json.JSONObject): String {
             val due = if (t.isNull("due")) "" else t.optString("due", "")
@@ -93,11 +113,18 @@ class TaskWidget : AppWidgetProvider() {
                 if (i < open.size) {
                     val t = open[i]
                     v.setViewVisibility(ROWS[i], View.VISIBLE)
-                    val pin = if (t.optString("pinnedFor") == Store.localKey()) "🎯 " else ""
-                    v.setTextViewText(TEXTS[i], pin + t.optString("text"))
+                    val pinned = t.optString("pinnedFor") == Store.localKey()
+                    if (pinned) v.setTextViewText(TEXTS[i], "🎯 " + t.optString("text"))
+                    else {
+                        val sp = android.text.SpannableString("● " + t.optString("text"))
+                        sp.setSpan(android.text.style.ForegroundColorSpan(tierColor(t)), 0, 1,
+                            android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        v.setTextViewText(TEXTS[i], sp)
+                    }
                     val why = t.optString("why")
                     val day = dayChip(t)
-                    val sub = listOf(day, if (why.isNotBlank()) "✦ $why" else "").filter { it.isNotBlank() }.joinToString("  ")
+                    val sub = listOf(day, timeChip(t), if (why.isNotBlank()) "✦ $why" else "")
+                        .filter { it.isNotBlank() }.joinToString("  ")
                     if (sub.isNotBlank()) {
                         v.setViewVisibility(WHYS[i], View.VISIBLE)
                         v.setTextViewText(WHYS[i], sub)
