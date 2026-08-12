@@ -27,7 +27,7 @@
         android:layout_marginTop="12dp"
         android:background="@drawable/add_btn_bg"
         android:text="@string/add"
-        android:textColor="#0b0e16"
+        android:textColor="#FFFFFF"
         android:textStyle="bold"
         android:textSize="15sp" />
 </LinearLayout>

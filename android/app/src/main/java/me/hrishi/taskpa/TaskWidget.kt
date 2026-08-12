@@ -56,12 +56,12 @@ class TaskWidget : AppWidgetProvider() {
 
         /** Priority tier color for the leading dot (matches the web app's High/Med/Low). */
         private fun tierColor(t: org.json.JSONObject): Int {
-            if (t.optBoolean("important")) return 0xFFEF7A76.toInt()
+            if (t.optBoolean("important")) return 0xFFDC2626.toInt()
             if (t.has("aiPriority") && !t.isNull("aiPriority")) {
                 val p = t.optInt("aiPriority")
-                return when { p >= 70 -> 0xFFEF7A76.toInt(); p >= 40 -> 0xFFE0B25C.toInt(); else -> 0xFF5CC98D.toInt() }
+                return when { p >= 70 -> 0xFFDC2626.toInt(); p >= 40 -> 0xFFD97706.toInt(); else -> 0xFF16A34A.toInt() }
             }
-            return 0xFF9A8F80.toInt()
+            return 0xFF6B7280.toInt()
         }
 
         /** "14:30" -> "2:30 PM" for the sub line; empty when the task has no time. */

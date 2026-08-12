@@ -14,8 +14,8 @@ const SECRET     = "PASTE-YOUR-PERSONAL-SECRET-HERE";               // your secr
 const APP_URL    = "https://hrishikeshpujari.github.io/daily-task-manager/";
 const TZ         = "America/Los_Angeles";
 
-// Ported from the web app's design system: warm parchment/ink, single brand accent.
-const BG = "#f9f7f2", TEXT = "#231f1a", DIM = "#847a71", DONE = "#2f7d52", BRAND = "#b82e4e";
+// WedOS design system: white card, ink text, gray-600 muted, rose brand.
+const BG = "#FFFFFF", TEXT = "#111827", DIM = "#6B7280", DONE = "#16A34A", BRAND = "#C6285A";
 const DAY_STYLE = {
   Monday:    { c: "#e0443e", e: "🚗" },
   Tuesday:   { c: "#e78f2e", e: "🦁" },
@@ -44,9 +44,9 @@ async function fetchWeek() {
 
 const DOMAIN_EMOJI = { home:"🏠", work:"💼", health:"🏋️", errands:"🛒", shopping:"🛒", groceries:"🛒", finance:"💳", personal:"💜", travel:"✈️", family:"👪", social:"🎉", fitness:"🏋️" };
 function tierColor(t) {
-  if (t.important) return "#bf3737";
+  if (t.important) return "#DC2626";
   if (typeof t.aiPriority === "number")
-    return t.aiPriority >= 70 ? "#bf3737" : t.aiPriority >= 40 ? "#a07417" : "#2f7d52";
+    return t.aiPriority >= 70 ? "#DC2626" : t.aiPriority >= 40 ? "#D97706" : "#16A34A";
   return DIM;
 }
 function fmtTime(hm) {

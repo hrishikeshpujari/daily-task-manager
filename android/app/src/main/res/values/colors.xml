@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Ported from the web app's design system (hrishikeshpujari.github.io/screener-on-demand-ai-summary):
-         warm parchment/ink palette, single berry-red brand accent. -->
-    <color name="bg">#1a1613</color>
-    <color name="panel">#241f1b</color>
-    <color name="panel2">#2b2521</color>
-    <color name="line">#39322c</color>
-    <color name="text">#f3ede4</color>
-    <color name="dim">#9a8f80</color>
-    <color name="accent">#cf4d6a</color>
-    <color name="good">#5cc98d</color>
-    <color name="warn">#e0b25c</color>
-    <color name="bad">#ef7a76</color>
-    <color name="pa">#cf4d6a</color>
-    <color name="ic_bg">#cf4d6a</color>
+    <!-- WedOS design system (WED-OS-New src/index.css): light-first — white cards on
+         #FAFAFB, #E5E7EB borders, rose #C6285A primary, gray-600 muted text. -->
+    <color name="bg">#FAFAFB</color>
+    <color name="panel">#FFFFFF</color>
+    <color name="panel2">#F1F2F4</color>
+    <color name="line">#E5E7EB</color>
+    <color name="text">#111827</color>
+    <color name="dim">#6B7280</color>
+    <color name="accent">#C6285A</color>
+    <color name="good">#16A34A</color>
+    <color name="warn">#D97706</color>
+    <color name="bad">#DC2626</color>
+    <color name="pa">#C6285A</color>
+    <color name="ic_bg">#C6285A</color>
 </resources>
