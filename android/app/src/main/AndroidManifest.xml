@@ -21,6 +21,16 @@
         </activity>
 
         <activity
+            android:name=".WidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/QuickAddTheme"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".QuickAddActivity"
             android:exported="false"
             android:theme="@style/QuickAddTheme"

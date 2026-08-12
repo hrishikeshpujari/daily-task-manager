@@ -155,8 +155,64 @@ function build(data) {
   return w;
 }
 
+// ── Day widgets (the Reminders-grid look) ─────────────────────────
+// Add several SMALL widgets and set each one's Parameter (long-press the widget →
+// Edit Widget → Parameter) to: monday, tuesday, wednesday, thursday, friday,
+// saturday, sunday, today, or tomorrow. Each renders that day's card.
+function findDay(data, param) {
+  const names = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  const days = data.days || [];
+  if (param === "today") return days[0];
+  if (param === "tomorrow") return days[1];
+  const target = names.indexOf(param);
+  if (target < 0) return null;
+  return days.find(d => new Date(d.date + "T12:00:00").getDay() === target) || null;
+}
+function buildDay(data, param) {
+  const w = new ListWidget();
+  w.backgroundColor = new Color(BG);
+  w.url = APP_URL;
+  w.setPadding(14, 14, 12, 14);
+  w.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
+  const someday = param === "someday";
+  const day = !data ? null
+    : someday ? { label: "Someday", tasks: data.unscheduled || [] }
+    : findDay(data, param);
+  const label = day ? day.label : param[0].toUpperCase() + param.slice(1);
+  const st = someday ? { c: "#9A5FD8", e: "🌸" }
+    : (DAY_STYLE[label] || DAY_STYLE[param[0].toUpperCase() + param.slice(1)] || { c: TEXT, e: "" });
+  const head = w.addStack();
+  head.centerAlignContent();
+  const name = head.addText(`${label} ${st.e}`);
+  name.font = Font.boldSystemFont(15);
+  name.textColor = new Color(st.c);
+  head.addSpacer();
+  const n = head.addText(String(day ? day.tasks.length : 0));
+  n.font = Font.boldSystemFont(17);
+  n.textColor = new Color(TEXT);
+  w.addSpacer(8);
+  if (!data) {
+    const t = w.addText("Open the app once 🌸");
+    t.font = Font.systemFont(12); t.textColor = new Color(DIM);
+  } else if (!day || !day.tasks.length) {
+    const t = w.addText("No Reminders");
+    t.font = Font.systemFont(13); t.textColor = new Color(DIM);
+  } else {
+    const max = config.widgetFamily === "large" ? 8 : config.widgetFamily === "medium" ? 5 : 4;
+    for (const t of day.tasks.slice(0, max)) addTaskLine(w, t, config.widgetFamily || "small");
+    if (day.tasks.length > max) {
+      const more = w.addText("+" + (day.tasks.length - max) + " more");
+      more.font = Font.systemFont(10); more.textColor = new Color(DIM);
+    }
+  }
+  w.addSpacer();
+  return w;
+}
+
+const PARAM = (args.widgetParameter || "").trim().toLowerCase();
+const DAY_PARAMS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday","today","tomorrow","someday"];
 const data = await fetchWeek();
-const widget = build(data);
+const widget = DAY_PARAMS.includes(PARAM) ? buildDay(data, PARAM) : build(data);
 if (config.runsInWidget) Script.setWidget(widget);
 else await widget.presentMedium();
 Script.complete();

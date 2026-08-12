@@ -18,12 +18,16 @@ import android.widget.RemoteViews
 class TaskWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        for (id in ids) manager.updateAppWidget(id, build(context))
+        for (id in ids) manager.updateAppWidget(id, build(context, id))
     }
 
     override fun onEnabled(context: Context) {
         SyncWorker.schedulePeriodic(context)
         SyncWorker.enqueueOnce(context, withPa = false)
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        appWidgetIds.forEach { Store.removeWidgetMode(context, it) }
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -51,7 +55,36 @@ class TaskWidget : AppWidgetProvider() {
         fun updateAll(context: Context) {
             val mgr = AppWidgetManager.getInstance(context)
             val ids = mgr.getAppWidgetIds(ComponentName(context, TaskWidget::class.java))
-            for (id in ids) mgr.updateAppWidget(id, build(context))
+            for (id in ids) mgr.updateAppWidget(id, build(context, id))
+        }
+
+        // Day-card meta (Reminders-grid palette shared with the web + iOS widgets).
+        private val DAY_META = mapOf(
+            "mon" to Triple("Monday", "🚗", 0xFFE0443E.toInt()),
+            "tue" to Triple("Tuesday", "🦁", 0xFFE78F2E.toInt()),
+            "wed" to Triple("Wednesday", "🥑", 0xFF3F9C48.toInt()),
+            "thu" to Triple("Thursday", "🦋", 0xFF3F7FD9.toInt()),
+            "fri" to Triple("Friday", "🎟", 0xFFE05D84.toInt()),
+            "sat" to Triple("Saturday", "🌸", 0xFF9A5FD8.toInt()),
+            "sun" to Triple("Sunday", "☀️", 0xFF2BA39A.toInt()),
+        )
+        private val DOW = mapOf(
+            "sun" to java.util.Calendar.SUNDAY, "mon" to java.util.Calendar.MONDAY,
+            "tue" to java.util.Calendar.TUESDAY, "wed" to java.util.Calendar.WEDNESDAY,
+            "thu" to java.util.Calendar.THURSDAY, "fri" to java.util.Calendar.FRIDAY,
+            "sat" to java.util.Calendar.SATURDAY,
+        )
+
+        /** Date key (yyyy-MM-dd) of the next occurrence of the given weekday (today counts). */
+        private fun nextDateFor(dayKey: String): String {
+            val target = DOW[dayKey] ?: return Store.localKey()
+            val cal = java.util.Calendar.getInstance()
+            for (i in 0..6) {
+                if (cal.get(java.util.Calendar.DAY_OF_WEEK) == target)
+                    return Store.localKey(cal.timeInMillis)
+                cal.add(java.util.Calendar.DAY_OF_MONTH, 1)
+            }
+            return Store.localKey()
         }
 
         /** Priority tier color for the leading dot (matches the web app's High/Med/Low). */
@@ -92,15 +125,57 @@ class TaskWidget : AppWidgetProvider() {
             PendingIntent.getBroadcast(context, req, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        fun build(context: Context): RemoteViews {
+        fun build(context: Context, widgetId: Int = 0): RemoteViews {
+            val mode = if (widgetId != 0) Store.widgetMode(context, widgetId) else "today"
             val v = RemoteViews(context.packageName, R.layout.widget_task)
             val tasks = Store.loadTasks(context)
-            val open = Store.openActive(tasks)
+            val dayMeta = DAY_META[mode]
+            val isDayCard = dayMeta != null || mode == "someday"
 
-            v.setTextViewText(R.id.doneCount, "✓ " + Store.doneToday(tasks) + " today")
+            val open: List<org.json.JSONObject> = when {
+                dayMeta != null -> {
+                    val key = nextDateFor(mode)
+                    val out = ArrayList<org.json.JSONObject>()
+                    for (i in 0 until tasks.length()) {
+                        val t = tasks.optJSONObject(i) ?: continue
+                        if (!t.optBoolean("deleted") && !t.optBoolean("done") &&
+                            (if (t.isNull("due")) "" else t.optString("due")) == key) out.add(t)
+                    }
+                    out.sortWith(compareByDescending { Store.effScore(it) }); out
+                }
+                mode == "someday" -> {
+                    val out = ArrayList<org.json.JSONObject>()
+                    for (i in 0 until tasks.length()) {
+                        val t = tasks.optJSONObject(i) ?: continue
+                        if (!t.optBoolean("deleted") && !t.optBoolean("done") &&
+                            t.optString("bucket") == "someday") out.add(t)
+                    }
+                    out.sortWith(compareByDescending { it.optLong("updatedAt") }); out
+                }
+                else -> Store.openActive(tasks)
+            }
+
+            if (dayMeta != null) {
+                v.setTextViewText(R.id.wTitle, dayMeta.first + " " + dayMeta.second)
+                v.setTextColor(R.id.wTitle, dayMeta.third)
+                v.setTextViewText(R.id.doneCount, open.size.toString())
+                v.setTextColor(R.id.doneCount, 0xFF111827.toInt())
+            } else if (mode == "someday") {
+                v.setTextViewText(R.id.wTitle, "Someday 💭")
+                v.setTextColor(R.id.wTitle, 0xFF9A5FD8.toInt())
+                v.setTextViewText(R.id.doneCount, open.size.toString())
+                v.setTextColor(R.id.doneCount, 0xFF111827.toInt())
+            } else {
+                v.setTextViewText(R.id.wTitle, if (mode == "week") "This Week" else "Today")
+                v.setTextColor(R.id.wTitle, 0xFF111827.toInt())
+                v.setTextViewText(R.id.doneCount, "✓ " + Store.doneToday(tasks) + " today")
+                v.setTextColor(R.id.doneCount, 0xFF16A34A.toInt())
+            }
+            v.setTextViewText(R.id.empty,
+                if (isDayCard) "No Reminders" else context.getString(R.string.empty_widget))
 
             val brief = Store.briefLine(context)
-            if (brief.isNotBlank()) {
+            if (brief.isNotBlank() && !isDayCard) {
                 v.setViewVisibility(R.id.brief, View.VISIBLE)
                 v.setTextViewText(R.id.brief, "✨ $brief")
             } else v.setViewVisibility(R.id.brief, View.GONE)
@@ -122,7 +197,7 @@ class TaskWidget : AppWidgetProvider() {
                         v.setTextViewText(TEXTS[i], sp)
                     }
                     val why = t.optString("why")
-                    val day = dayChip(t)
+                    val day = if (isDayCard) "" else dayChip(t)
                     val sub = listOf(day, timeChip(t), if (why.isNotBlank()) "✦ $why" else "")
                         .filter { it.isNotBlank() }.joinToString("  ")
                     if (sub.isNotBlank()) {

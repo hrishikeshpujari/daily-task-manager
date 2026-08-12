@@ -49,6 +49,15 @@ You get day-by-day cards (Monday 🚗, Thursday 🦋 …) with your tasks, done 
 and overdue flags. It refreshes itself (~every 30 min, iOS decides exactly when)
 and works offline from its last snapshot. Tap it to open the app.
 
+### The day-widget grid (your old Reminders home screen, but live)
+One script powers per-day cards too. Add a **Small** Scriptable widget for each
+day, then long-press it → **Edit Widget** → **Script: Tasks PA** → **Parameter**:
+`monday`, `tuesday`, `wednesday`, `thursday`, `friday` (and `saturday`, `sunday`,
+`today`, `tomorrow`, or `someday` for a "Holidayyyy"-style ideas card). Arrange
+them in a grid — each card shows the colored day name + emoji, the count, and
+that day's tasks, with "No Reminders" when it's clear. Tasks you speak to Siri
+with a day ("dentist thursday 8:30am") land on the right card automatically.
+
 ## Notes
 - Your secret identifies *you* to the Worker; your GitHub token never leaves your
   own devices' app settings.

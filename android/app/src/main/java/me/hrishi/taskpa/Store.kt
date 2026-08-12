@@ -28,6 +28,15 @@ object Store {
     fun localKey(ts: Long = System.currentTimeMillis()): String =
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(ts))
 
+    // Per-widget-instance mode ("today" | "week" | "someday" | "mon".."sun") — set by
+    // WidgetConfigActivity when a widget is placed, cleaned up in onDeleted.
+    fun widgetMode(ctx: Context, widgetId: Int): String =
+        prefs(ctx).getString("widget_mode_$widgetId", "today") ?: "today"
+    fun setWidgetMode(ctx: Context, widgetId: Int, mode: String) =
+        prefs(ctx).edit().putString("widget_mode_$widgetId", mode).apply()
+    fun removeWidgetMode(ctx: Context, widgetId: Int) =
+        prefs(ctx).edit().remove("widget_mode_$widgetId").apply()
+
     fun loadTasks(ctx: Context): JSONArray =
         try { JSONArray(prefs(ctx).getString("tasks", "[]") ?: "[]") } catch (e: Exception) { JSONArray() }
 
