@@ -275,18 +275,29 @@
   .ring svg{transform:rotate(-90deg)}
   .ring .rv{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;color:var(--good)}
 
-  /* board view (kanban — WedOS pipeline pattern) */
-  .board{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:10px;align-items:start;overflow-x:auto}
-  @media(max-width:900px){ .board{grid-template-columns:repeat(4,minmax(200px,1fr))} }
-  .bcol{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r);padding:8px;min-height:120px}
+  /* board view (kanban — WedOS pipeline pattern). The board escapes the 700px content
+     column on desktop (body.boardview widens .wrap) and uses COMPACT cards, not the
+     full task rows — those need ~400px and turned narrow columns into chip soup. */
+  .board{display:grid;grid-template-columns:repeat(4,minmax(215px,1fr));gap:12px;align-items:start;overflow-x:auto;
+    scroll-snap-type:x proximity;padding-bottom:6px}
+  .bcol{background:var(--surface2);border:1px solid var(--line);border-radius:var(--r);padding:8px;min-height:140px;scroll-snap-align:start}
   .bcol.dragover{border-color:var(--accent);background:var(--accentdim)}
   .bcol .bhd{display:flex;align-items:center;gap:7px;padding:4px 6px 8px;font-size:11px;font-weight:600;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
   .bcol .bhd .bn{margin-left:auto;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:1px 7px;font-size:10.5px}
-  .bcol ul.list{gap:7px}
-  .bcol .task{cursor:grab}
-  .bcol .task:active{cursor:grabbing}
-  .task.dragging{opacity:.45}
+  .bcol ul.list{gap:7px;list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  .bcard{display:flex;align-items:flex-start;gap:9px;padding:10px 11px;cursor:grab;background:var(--surface);
+    border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .bcard:active{cursor:grabbing}
+  .bcard .check{width:20px;height:20px;margin-top:1px;border-width:2px}
+  .bcard .bmain{flex:1;min-width:0;cursor:pointer}
+  .bcard .btxt{font-size:13px;line-height:1.35;word-break:break-word;color:var(--text)}
+  .bcard.done .btxt{text-decoration:line-through;color:var(--faint)}
+  .bcard .bsub{display:flex;gap:7px;align-items:center;margin-top:4px;font-size:10.5px;color:var(--dim);flex-wrap:wrap}
+  .bdot{width:7px;height:7px;border-radius:50%;flex:none}
+  .bdot.high{background:#EF4444}.bdot.med{background:#D97706}.bdot.low{background:#16A34A}
+  .task.dragging,.bcard.dragging{opacity:.45}
   .bhint{font-size:11px;color:var(--faint);text-align:center;padding:10px 4px}
+  @media(min-width:900px){ body.boardview .wrap{max-width:1180px} }
 
   /* sidebar "Up next" rail (WedOS Ongoing-Weddings pattern) */
   .upnext{display:flex;flex-direction:column;gap:2px}
@@ -684,6 +695,18 @@ function boardMove(id,colKey){
   });
   queuePrioritize();
 }
+function boardCardHTML(t){
+  const tr=tier(t);
+  const sub=[];
+  if(!t.done) sub.push(`<span class="bdot ${tr}" title="${TIER_LABEL[tr]} priority"></span>`);
+  const dl=dueLabel(t); if(dl&&!t.done) sub.push(`<span>${dl.txt}</span>`);
+  const tm=fmtTime(t.time); if(tm&&!t.done) sub.push(`<span>🕐 ${tm}</span>`);
+  if(t.domain) sub.push(`<span>${esc(t.domain)}</span>`);
+  const pin=(!t.done&&t.pinnedFor===localKey())?"🎯 ":"";
+  return `<li class="task bcard${t.done?" done":""}" data-id="${t.id}" draggable="true">
+    <button class="check" data-act="done" aria-label="Done"></button>
+    <div class="bmain" data-act="bopen"><div class="btxt">${pin}${esc(t.text)}</div>${sub.length?`<div class="bsub">${sub.join("")}</div>`:""}</div></li>`;
+}
 function boardHTML(){
   const today=localKey();
   const open=state.tasks.filter(t=>!t.deleted&&!t.done);
@@ -692,7 +715,7 @@ function boardHTML(){
   const todo=open.filter(t=>t.bucket==="active"&&!(t.due===today||t.pinnedFor===today)).sort((a,b)=>effScore(b)-effScore(a));
   const doneAll=state.tasks.filter(t=>!t.deleted&&t.done);
   const done=doneAll.sort((a,b)=>(b.completedAt||0)-(a.completedAt||0)).slice(0,10);
-  const col=(key,label,arr,count,hint)=>`<div class="bcol" data-col="${key}"><div class="bhd">${label}<span class="bn">${count}</span></div><ul class="list">${arr.map(t=>taskHTML(t,null)).join("")}</ul>${arr.length?"":`<div class="bhint">${hint}</div>`}</div>`;
+  const col=(key,label,arr,count,hint)=>`<div class="bcol" data-col="${key}"><div class="bhd">${label}<span class="bn">${count}</span></div><ul class="list">${arr.map(boardCardHTML).join("")}</ul>${arr.length?"":`<div class="bhint">${hint}</div>`}</div>`;
   return `<div class="board">${
     col("todo","📋 To do",todo,todo.length,"drag a card here to unschedule it")}${
     col("today","⭐ Today",todayCol,todayCol.length,"drag here to do it today")}${
@@ -804,6 +827,7 @@ function briefHTML(){
 }
 
 function render(){
+  document.body.classList.toggle("boardview", state.view==="board");
   $("#doneToday").textContent=doneTodayList().length;
   const act=activeOpen(), some=somedayList();
   $("#c-today").textContent=act.length?"("+Math.min(act.length,5)+")":"";
@@ -865,6 +889,7 @@ $("#content").addEventListener("click",e=>{
   }
   else if(act==="star"){ mutate(id,t=>t.important=!t.important); queuePrioritize(); }
   else if(act==="open"){ state.openId=state.openId===id?null:id; render(); }
+  else if(act==="bopen"){ const t=state.tasks.find(x=>x.id===id); if(t&&t.done) setView("history"); else jumpToTask(id); }
   else if(act==="pin") pinTask(id,localKey());
   else if(act==="dueT"){ mutate(id,t=>t.due=localKey()); queuePrioritize(); }
   else if(act==="dueM"){ mutate(id,t=>t.due=tomorrowKey()); queuePrioritize(); }
