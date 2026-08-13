@@ -1,6 +1,9 @@
 name = "task-pa"
 main = "worker.js"
 compatibility_date = "2024-11-01"
+# Dashboard-managed vars (MODEL, ALLOWED_ORIGINS) and all secrets live in the CF
+# dashboard — never let a CLI deploy wipe them.
+keep_vars = true
 
 # Secrets are NOT stored here. Set them with:
 #   wrangler secret put ANTHROPIC_API_KEY
