@@ -41,6 +41,23 @@ export default {
     const relayOk = user || (env.APP_SECRET && secret === env.APP_SECRET);
 
     try {
+      // Setup diagnostics: reports only booleans/flags, never values. The match oracle is
+      // useless against 128-bit random secrets, and it turns "mystery 401" into a named cause.
+      if (url.pathname === "/diag") {
+        return json({
+          version: "v2-diag1",
+          SECRET_H_set: !!env.SECRET_H, GH_TOKEN_H_set: !!env.GH_TOKEN_H,
+          SECRET_K_set: !!env.SECRET_K, GH_TOKEN_K_set: !!env.GH_TOKEN_K,
+          APP_SECRET_set: !!env.APP_SECRET,
+          providedSecret: secret ? "present" : "absent",
+          resolves: user ? ("person-" + user.name)
+            : (env.SECRET_H && secret === env.SECRET_H) ? "H-secret-matches-but-GH_TOKEN_H-missing"
+            : (env.SECRET_K && secret === env.SECRET_K) ? "K-secret-matches-but-GH_TOKEN_K-missing"
+            : (env.APP_SECRET && secret === env.APP_SECRET) ? "legacy-APP_SECRET-relay-only"
+            : "no-match",
+        }, 200, cors);
+      }
+
       if (url.pathname === "/capture" && request.method === "POST") {
         if (!user) return json({ error: "unauthorized: /capture needs a per-person secret" }, 401, cors);
         let body; try { body = await request.json(); } catch { return json({ error: "bad json" }, 400, cors); }
