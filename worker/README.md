@@ -22,6 +22,9 @@ Three jobs:
    - `SECRET_K` / `GH_TOKEN_K` — person 2's secret + their gist-scoped GitHub token — **type: Secret**
    - `GIST_H` / `GIST_K` *(optional)* — pin gist ids; else auto-discovered — type: Text
    - `MODEL` *(optional)* — `claude-haiku-4-5-20251001` — type: Text
+   - `GEMINI_API_KEY` *(optional)* — free key from [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — type: **Secret**. With both keys set, the Worker uses the primary and **fails over automatically** if the other provider errors or runs out of credit.
+   - `AI_PROVIDER` *(optional)* — `anthropic` or `gemini` — picks the primary (default: anthropic if its key exists, else gemini) — type: Text
+   - `GEMINI_MODEL` *(optional)* — default `gemini-2.5-flash` — type: Text
    - `ALLOWED_ORIGINS` *(optional)* — comma-separated browser origins allowed to call the relay; defaults to the app's GitHub Pages origin + localhost — type: Text
 4. Copy your Worker URL: `https://task-pa.<your-subdomain>.workers.dev`.
 

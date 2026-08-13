@@ -45,10 +45,13 @@ export default {
       // useless against 128-bit random secrets, and it turns "mystery 401" into a named cause.
       if (url.pathname === "/diag") {
         return json({
-          version: "v2-diag1",
+          version: "v3-gemini",
           SECRET_H_set: !!env.SECRET_H, GH_TOKEN_H_set: !!env.GH_TOKEN_H,
           SECRET_K_set: !!env.SECRET_K, GH_TOKEN_K_set: !!env.GH_TOKEN_K,
           APP_SECRET_set: !!env.APP_SECRET,
+          anthropicKey: !!env.ANTHROPIC_API_KEY, geminiKey: !!env.GEMINI_API_KEY,
+          aiPrimary: (env.AI_PROVIDER || "").toLowerCase() ||
+            (env.ANTHROPIC_API_KEY ? "anthropic" : (env.GEMINI_API_KEY ? "gemini" : "none")),
           providedSecret: secret ? "present" : "absent",
           resolves: user ? ("person-" + user.name)
             : (env.SECRET_H && secret === env.SECRET_H) ? "H-secret-matches-but-GH_TOKEN_H-missing"
@@ -67,7 +70,7 @@ export default {
 
         let fields = { text: raw, due: null, time: null, important: false, domain: null, bucket: "active" };
         try {
-          const ai = parseLoose(await claude(env, SYS_INGEST, "Today is " + today + ". Raw capture:\n" + raw, 400));
+          const ai = parseLoose(await llm(env, SYS_INGEST, "Today is " + today + ". Raw capture:\n" + raw, 400));
           if (ai) {
             if (ai.text && String(ai.text).trim()) fields.text = String(ai.text).trim();
             if (ai.due && /^\d{4}-\d{2}-\d{2}$/.test(ai.due)) fields.due = ai.due;
@@ -105,7 +108,7 @@ export default {
       if (request.method !== "POST") return json({ error: "POST only" }, 405, cors);
       if (!relayOk) return json({ error: "unauthorized" }, 401, cors);
       let body; try { body = await request.json(); } catch { return json({ error: "bad json" }, 400, cors); }
-      const text = await claude(env, String(body.system || ""), String(body.prompt || ""),
+      const text = await llm(env, String(body.system || ""), String(body.prompt || ""),
         Math.min(Math.max(parseInt(body.max_tokens, 10) || 1024, 64), 4096));
       return json({ result: text }, 200, cors);
     } catch (e) {
@@ -121,6 +124,55 @@ function resolveUser(env, secret) {
   if (env.SECRET_K && secret === env.SECRET_K && env.GH_TOKEN_K)
     return { name: "K", token: env.GH_TOKEN_K, gistId: env.GIST_K || "" };
   return null;
+}
+
+// Provider-agnostic entry: tries the preferred provider, fails over to the other if
+// configured. AI_PROVIDER=gemini|anthropic picks the primary (default: anthropic when
+// its key exists, else gemini). An empty/errored response falls through to the backup.
+async function llm(env, system, prompt, maxTokens) {
+  const haveA = !!env.ANTHROPIC_API_KEY, haveG = !!env.GEMINI_API_KEY;
+  const pref = (env.AI_PROVIDER || "").toLowerCase();
+  const order =
+    pref === "gemini" ? ["gemini", "anthropic"] :
+    pref === "anthropic" ? ["anthropic", "gemini"] :
+    haveA ? ["anthropic", "gemini"] : ["gemini", "anthropic"];
+  let lastErr = null;
+  for (const p of order) {
+    if (p === "anthropic" && !haveA) continue;
+    if (p === "gemini" && !haveG) continue;
+    try {
+      const text = p === "gemini"
+        ? await gemini(env, system, prompt, maxTokens)
+        : await claude(env, system, prompt, maxTokens);
+      if (text && text.trim()) return text;
+      lastErr = new Error(p + " returned empty output");
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error("no AI provider configured (set ANTHROPIC_API_KEY and/or GEMINI_API_KEY)");
+}
+
+async function gemini(env, system, prompt, maxTokens) {
+  const model = env.GEMINI_MODEL || "gemini-2.5-flash";
+  const gen = { maxOutputTokens: maxTokens };
+  // Flash models: disable "thinking" so the token budget goes to the answer — our calls
+  // want fast structured JSON, and thought tokens can eat the whole budget.
+  if (model.includes("flash")) gen.thinkingConfig = { thinkingBudget: 0 };
+  const body = {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: gen,
+  };
+  if (system) body.systemInstruction = { parts: [{ text: system }] };
+  const resp = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY },
+      body: JSON.stringify(body),
+    }
+  );
+  if (!resp.ok) throw new Error("gemini " + resp.status + ": " + (await resp.text()).slice(0, 200));
+  const data = await resp.json();
+  return ((data.candidates || [])[0]?.content?.parts || []).map(p => p.text || "").join("");
 }
 
 async function claude(env, system, prompt, maxTokens) {
