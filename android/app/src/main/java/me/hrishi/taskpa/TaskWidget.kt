@@ -7,18 +7,29 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Bundle
 import android.view.View
 import android.widget.RemoteViews
 
 /**
  * Home-screen widget: today's top 5 (Claude-ranked, 🎯 #1 first), the daily-brief line,
  * done-today count, one-tap done circles, and a ➕ quick-add. Top-5 rows are fixed views
- * (not a collection) so every element can carry its own PendingIntent.
+ * (not a collection) so every element can carry its own PendingIntent. Resizable
+ * (minResizeWidth/Height in task_widget_info.xml) — build() reads the CURRENT placed size
+ * every time via getAppWidgetOptions and caps how many of the 5 rows it shows, so a
+ * shrunk-down widget shows fewer rows instead of clipping or overflowing its bounds.
  */
 class TaskWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         for (id in ids) manager.updateAppWidget(id, build(context, id))
+    }
+
+    // Fires whenever the user finishes dragging a resize handle — rebuild with the new size.
+    override fun onAppWidgetOptionsChanged(
+        context: Context, manager: AppWidgetManager, widgetId: Int, newOptions: Bundle
+    ) {
+        manager.updateAppWidget(widgetId, build(context, widgetId))
     }
 
     override fun onEnabled(context: Context) {
@@ -197,6 +208,15 @@ class TaskWidget : AppWidgetProvider() {
             val pal = paletteFor(themeId, Store.themeMode(context))
             val sticker = randomSticker(themeId)
 
+            // Size tier from the CURRENT placed dimensions (re-queried live, not cached, so
+            // this stays correct across resizes without needing separate persisted state).
+            // Height is what limits how many rows fit; width isn't tiered separately since
+            // ellipsize="end" already degrades gracefully at any width.
+            val opts = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
+            val heightDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 140)
+            val maxRows = when { heightDp < 100 -> 1; heightDp < 190 -> 3; else -> 5 }
+            val showBrief = heightDp >= 100
+
             // Card shape is fixed (widget_bg/add_btn_bg/circle_check); only the fill color
             // is retinted, via ImageView colorFilter so the rounded corners survive.
             v.setInt(R.id.bgImg, "setColorFilter", pal.paper)
@@ -247,7 +267,7 @@ class TaskWidget : AppWidgetProvider() {
                 if (isDayCard) "No Reminders" else context.getString(R.string.empty_widget))
 
             val brief = Store.briefLine(context)
-            if (brief.isNotBlank() && !isDayCard) {
+            if (brief.isNotBlank() && !isDayCard && showBrief) {
                 v.setViewVisibility(R.id.brief, View.VISIBLE)
                 v.setTextViewText(R.id.brief, "✨ $brief")
                 v.setTextColor(R.id.brief, pal.accent)
@@ -258,7 +278,7 @@ class TaskWidget : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
             for (i in ROWS.indices) {
-                if (i < open.size) {
+                if (i < open.size && i < maxRows) {
                     val t = open[i]
                     v.setViewVisibility(ROWS[i], View.VISIBLE)
                     v.setTextColor(TEXTS[i], pal.ink)
