@@ -8,6 +8,9 @@ import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import org.json.JSONObject
 import org.json.JSONTokener
 
@@ -23,8 +26,16 @@ class MainActivity : Activity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // targetSdk 36 means edge-to-edge is enforced by the OS (not optional past API 35) -
+        // content draws behind the status/nav bars unless we explicitly pad for them.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         web = WebView(this)
         applyThemeChrome()
+        ViewCompat.setOnApplyWindowInsetsListener(web) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
+        }
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.webViewClient = object : WebViewClient() {
