@@ -89,12 +89,12 @@ class TaskWidget : AppWidgetProvider() {
 
         /** Priority tier color for the leading dot (matches the web app's High/Med/Low). */
         private fun tierColor(t: org.json.JSONObject): Int {
-            if (t.optBoolean("important")) return 0xFFDC2626.toInt()
+            if (t.optBoolean("important")) return 0xFFC94F59.toInt()
             if (t.has("aiPriority") && !t.isNull("aiPriority")) {
                 val p = t.optInt("aiPriority")
-                return when { p >= 70 -> 0xFFDC2626.toInt(); p >= 40 -> 0xFFD97706.toInt(); else -> 0xFF16A34A.toInt() }
+                return when { p >= 70 -> 0xFFC94F59.toInt(); p >= 40 -> 0xFFA86100.toInt(); else -> 0xFF138B6B.toInt() }
             }
-            return 0xFF6B7280.toInt()
+            return 0xFF6F7890.toInt()
         }
 
         /** "14:30" -> "2:30 PM" for the sub line; empty when the task has no time. */
@@ -159,17 +159,17 @@ class TaskWidget : AppWidgetProvider() {
                 v.setTextViewText(R.id.wTitle, dayMeta.first + " " + dayMeta.second)
                 v.setTextColor(R.id.wTitle, dayMeta.third)
                 v.setTextViewText(R.id.doneCount, open.size.toString())
-                v.setTextColor(R.id.doneCount, 0xFF111827.toInt())
+                v.setTextColor(R.id.doneCount, 0xFF19233D.toInt())
             } else if (mode == "someday") {
                 v.setTextViewText(R.id.wTitle, "Someday 💭")
                 v.setTextColor(R.id.wTitle, 0xFF9A5FD8.toInt())
                 v.setTextViewText(R.id.doneCount, open.size.toString())
-                v.setTextColor(R.id.doneCount, 0xFF111827.toInt())
+                v.setTextColor(R.id.doneCount, 0xFF19233D.toInt())
             } else {
                 v.setTextViewText(R.id.wTitle, if (mode == "week") "This Week" else "Today")
-                v.setTextColor(R.id.wTitle, 0xFF111827.toInt())
+                v.setTextColor(R.id.wTitle, 0xFF19233D.toInt())
                 v.setTextViewText(R.id.doneCount, "✓ " + Store.doneToday(tasks) + " today")
-                v.setTextColor(R.id.doneCount, 0xFF16A34A.toInt())
+                v.setTextColor(R.id.doneCount, 0xFF138B6B.toInt())
             }
             v.setTextViewText(R.id.empty,
                 if (isDayCard) "No Reminders" else context.getString(R.string.empty_widget))

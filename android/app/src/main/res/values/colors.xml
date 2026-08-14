@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- WedOS design system (WED-OS-New src/index.css): light-first — white cards on
-         #FAFAFB, #E5E7EB borders, rose #C6285A primary, gray-600 muted text. -->
-    <color name="bg">#FAFAFB</color>
-    <color name="panel">#FFFFFF</color>
-    <color name="panel2">#F1F2F4</color>
-    <color name="line">#E5E7EB</color>
-    <color name="text">#111827</color>
-    <color name="dim">#6B7280</color>
-    <color name="accent">#C6285A</color>
-    <color name="good">#16A34A</color>
-    <color name="warn">#D97706</color>
-    <color name="bad">#DC2626</color>
-    <color name="pa">#C6285A</color>
-    <color name="ic_bg">#C6285A</color>
+    <!-- AI First tracker palette (matches the web app): ink text on white/canvas,
+         indigo #5b5bd6 accent, tracker semantic green/amber/red. -->
+    <color name="bg">#f7f8fb</color>
+    <color name="panel">#ffffff</color>
+    <color name="panel2">#f1f3f6</color>
+    <color name="line">#e8eaf0</color>
+    <color name="text">#19233d</color>
+    <color name="dim">#6f7890</color>
+    <color name="accent">#5b5bd6</color>
+    <color name="good">#138b6b</color>
+    <color name="warn">#a86100</color>
+    <color name="bad">#c94f59</color>
+    <color name="pa">#5b5bd6</color>
+    <color name="ic_bg">#5b5bd6</color>
 </resources>
