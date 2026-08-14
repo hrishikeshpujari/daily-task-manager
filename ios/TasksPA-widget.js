@@ -14,8 +14,8 @@ const SECRET     = "PASTE-YOUR-PERSONAL-SECRET-HERE";               // your secr
 const APP_URL    = "https://hrishikeshpujari.github.io/daily-task-manager/";
 const TZ         = "America/Los_Angeles";
 
-// AI First tracker palette (matches the web app): ink on white, indigo brand.
-const BG = "#FFFFFF", TEXT = "#19233d", DIM = "#6f7890", DONE = "#138b6b", BRAND = "#5b5bd6";
+// Screener-app color scheme (matches the web app): ink on white, berry brand.
+const BG = "#FFFFFF", TEXT = "#231f1a", DIM = "#847a71", DONE = "#2f7d52", BRAND = "#b82e4e";
 const DAY_STYLE = {
   Monday:    { c: "#e0443e", e: "🚗" },
   Tuesday:   { c: "#e78f2e", e: "🦁" },
@@ -44,9 +44,9 @@ async function fetchWeek() {
 
 const DOMAIN_EMOJI = { home:"🏠", work:"💼", health:"🏋️", errands:"🛒", shopping:"🛒", groceries:"🛒", finance:"💳", personal:"💜", travel:"✈️", family:"👪", social:"🎉", fitness:"🏋️" };
 function tierColor(t) {
-  if (t.important) return "#c94f59";
+  if (t.important) return "#bf3737";
   if (typeof t.aiPriority === "number")
-    return t.aiPriority >= 70 ? "#c94f59" : t.aiPriority >= 40 ? "#a86100" : "#138b6b";
+    return t.aiPriority >= 70 ? "#bf3737" : t.aiPriority >= 40 ? "#a07417" : "#2f7d52";
   return DIM;
 }
 function fmtTime(hm) {

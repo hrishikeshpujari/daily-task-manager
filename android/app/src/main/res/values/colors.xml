@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- AI First tracker palette (matches the web app): ink text on white/canvas,
-         indigo #5b5bd6 accent, tracker semantic green/amber/red. -->
-    <color name="bg">#f7f8fb</color>
+    <!-- Screener-app color scheme (matches the web app): warm parchment surfaces,
+         ink text, berry #B82E4E brand, screener pos/amber/neg semantics. -->
+    <color name="bg">#f9f7f2</color>
     <color name="panel">#ffffff</color>
-    <color name="panel2">#f1f3f6</color>
-    <color name="line">#e8eaf0</color>
-    <color name="text">#19233d</color>
-    <color name="dim">#6f7890</color>
-    <color name="accent">#5b5bd6</color>
-    <color name="good">#138b6b</color>
-    <color name="warn">#a86100</color>
-    <color name="bad">#c94f59</color>
-    <color name="pa">#5b5bd6</color>
-    <color name="ic_bg">#5b5bd6</color>
+    <color name="panel2">#f4f0ec</color>
+    <color name="line">#e0dad2</color>
+    <color name="text">#231f1a</color>
+    <color name="dim">#847a71</color>
+    <color name="accent">#b82e4e</color>
+    <color name="good">#2f7d52</color>
+    <color name="warn">#a07417</color>
+    <color name="bad">#bf3737</color>
+    <color name="pa">#b82e4e</color>
+    <color name="ic_bg">#b82e4e</color>
 </resources>
