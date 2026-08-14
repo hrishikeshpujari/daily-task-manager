@@ -75,10 +75,14 @@
   .sub{color:var(--muted);margin:5px 0 0}
   .primary{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:650;box-shadow:var(--shadow)}
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:27px 0}
-  .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:17px 18px;min-height:101px;cursor:pointer}
+  .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:17px 18px;min-height:101px;cursor:pointer;position:relative;overflow:visible}
   .stat label{color:var(--muted);font-size:12px;cursor:pointer}
   .stat strong{display:block;font-size:28px;letter-spacing:-1px;margin-top:6px}
   .stat small{color:var(--muted)}
+  .stat-sticker{position:absolute;top:-9px;right:-7px;font-size:20px;line-height:1;transform:rotate(11deg);filter:drop-shadow(0 2px 3px #00000030);pointer-events:none;user-select:none}
+  .panel-sticker{font-size:14px;margin-left:5px;vertical-align:-1px}
+  .swatch-stickers{font-size:12px;opacity:.85;letter-spacing:1px}
+  .sidebar-sticker{margin-left:auto;font-size:14px;opacity:.9}
   .layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px}
   .panel{background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .toolbar{padding:15px 16px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:9px;align-items:center}
@@ -262,6 +266,7 @@
   @media(max-width:650px){
     .stats{grid-template-columns:1fr 1fr;gap:9px;margin:18px 0}
     .stat{min-height:0;padding:12px 13px}.stat strong{font-size:22px}
+    .stat-sticker{top:3px;right:4px;font-size:14px;transform:rotate(8deg)}
     .top{display:block}.aside{grid-template-columns:1fr}
     .main{padding:18px 12px 110px}
     #bnav{display:flex}
@@ -273,7 +278,7 @@
 <body>
 <div class="shell">
 <aside class="sidebar">
-  <div class="brand"><span class="mark">✓</span> My Tasks</div>
+  <div class="brand"><span class="mark">✓</span> My Tasks <span class="sidebar-sticker" id="sk_sidebar"></span></div>
   <div class="workspace">Workspace</div>
   <nav class="nav" id="sbnav">
     <button data-view="today" class="on">▦ Today</button>
@@ -311,10 +316,10 @@
   <div id="capDue" class="capdue" hidden><span id="capDueLbl"></span><button type="button" id="capDueX" aria-label="Clear date">✕</button></div>
 
   <section class="stats">
-    <div class="stat" id="doneBadge" title="Completed tasks"><label>Done today</label><strong id="doneToday">0</strong><small>Tap for history</small></div>
-    <div class="stat" data-stat="today"><label>Due today</label><strong id="stDueToday">0</strong><small>On today's plate</small></div>
-    <div class="stat" data-stat="week"><label>Overdue</label><strong id="stOverdue">0</strong><small>Need rescue</small></div>
-    <div class="stat" data-stat="all"><label>High priority</label><strong id="stHigh">0</strong><small>Claude-ranked</small></div>
+    <div class="stat" id="doneBadge" title="Completed tasks"><span class="stat-sticker" id="sk_stat1"></span><label>Done today</label><strong id="doneToday">0</strong><small>Tap for history</small></div>
+    <div class="stat" data-stat="today"><span class="stat-sticker" id="sk_stat2"></span><label>Due today</label><strong id="stDueToday">0</strong><small>On today's plate</small></div>
+    <div class="stat" data-stat="week"><span class="stat-sticker" id="sk_stat3"></span><label>Overdue</label><strong id="stOverdue">0</strong><small>Need rescue</small></div>
+    <div class="stat" data-stat="all"><span class="stat-sticker" id="sk_stat4"></span><label>High priority</label><strong id="stHigh">0</strong><small>Claude-ranked</small></div>
   </section>
 
   <section class="layout">
@@ -324,10 +329,10 @@
       <div id="content"></div>
     </div>
     <aside class="aside" id="aside">
-      <div class="panel"><h3>Due by day</h3><div class="focus" id="dueTasks"></div></div>
-      <div class="panel"><h3>Priority queue</h3><div class="focus" id="focusQueue"></div></div>
-      <div class="panel"><h3>Recently completed</h3><div class="focus" id="completedTasks"></div></div>
-      <div class="panel"><h3>Progress by domain</h3><div id="projectProgress"></div></div>
+      <div class="panel"><h3>Due by day<span class="panel-sticker" id="sk_panelDue"></span></h3><div class="focus" id="dueTasks"></div></div>
+      <div class="panel"><h3>Priority queue<span class="panel-sticker" id="sk_panelQueue"></span></h3><div class="focus" id="focusQueue"></div></div>
+      <div class="panel"><h3>Recently completed<span class="panel-sticker" id="sk_panelDone"></span></h3><div class="focus" id="completedTasks"></div></div>
+      <div class="panel"><h3>Progress by domain<span class="panel-sticker" id="sk_panelDomain"></span></h3><div id="projectProgress"></div></div>
     </aside>
   </section>
 </main>
@@ -546,7 +551,7 @@ function historyHTML(){
     body+=ghead(dayLabel(k),items.length+" done")+items.map(t=>taskHTML(t,null)).join("");
   });
   return `<div class="panel"><div class="toolbar"><h2>Completed</h2></div><div class="spark">${bars}</div>${
-    done.length?listWrap(body):`<div class="empty">No completed tasks yet. Knock one out 💪</div>`}<button class="weekbtn" id="weekBtn">📧 Generate weekly email</button></div>`;
+    done.length?listWrap(body):`<div class="empty">No completed tasks yet. Knock one out ${randomSticker()}</div>`}<button class="weekbtn" id="weekBtn">📧 Generate weekly email</button></div>`;
 }
 function fillStats(){
   const act=activeOpen(), dn=doneTodayList().length, today=localKey();
@@ -570,26 +575,26 @@ function renderAside(){
   const act=activeOpen();
   const due=act.filter(t=>t.due).sort((a,b)=>a.due.localeCompare(b.due)).slice(0,6);
   $("#dueTasks").innerHTML=due.map(t=>focusItem(t,new Date(t.due+"T00:00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+(t.domain?" · "+t.domain:""))).join("")
-    ||'<div class="meta">No upcoming due dates yet.</div>';
+    ||`<div class="meta">No upcoming due dates yet. ${randomSticker()}</div>`;
   const focus=act.filter(t=>tier(t)==="high").slice(0,5);
   $("#focusQueue").innerHTML=focus.map(t=>focusItem(t,(t.domain||"High priority")+(t.why?" · "+t.why:""))).join("")
-    ||'<div class="meta">Priority queue is clear.</div>';
+    ||`<div class="meta">Priority queue is clear. ${randomSticker()}</div>`;
   const completed=state.tasks.filter(t=>!t.deleted&&t.done).sort((a,b)=>(b.completedAt||0)-(a.completedAt||0)).slice(0,5);
   $("#completedTasks").innerHTML=completed.map(t=>focusItem(t,t.completedAt?new Date(t.completedAt).toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"}):"Done")).join("")
-    ||'<div class="meta">Completed tasks will appear here.</div>';
+    ||`<div class="meta">Completed tasks will appear here. ${randomSticker()}</div>`;
   const domains=[...new Set(state.tasks.filter(t=>!t.deleted&&t.domain).map(t=>t.domain))].sort();
   $("#projectProgress").innerHTML=domains.map(d=>{
     const x=state.tasks.filter(t=>!t.deleted&&t.domain===d);
     const doneN=x.filter(t=>t.done).length;
     const pct=x.length?Math.round(doneN/x.length*100):0;
     return `<div class="project-row"><div class="project-label"><b>${esc(d)}</b><span>${pct}% · ${x.length} tasks</span></div><div class="widebar"><i style="width:${pct}%"></i></div></div>`;
-  }).join("")||'<div class="meta">Add domains to tasks to see progress here.</div>';
+  }).join("")||`<div class="meta">Add domains to tasks to see progress here. ${randomSticker()}</div>`;
 }
 function boardMove(id,colKey){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   const today=localKey();
   if(colKey==="done"){
-    if(!t.done){ mutate(id,x=>{ x.done=true; x.completedAt=Date.now(); }); showToast("✓ Done","Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; })); }
+    if(!t.done){ mutate(id,x=>{ x.done=true; x.completedAt=Date.now(); }); showToast(`✓ Done ${randomSticker()}`,"Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; })); }
     return;
   }
   mutate(id,x=>{
@@ -671,8 +676,8 @@ function monthHTML(){
     html+=`<div class="dayhdr"><h3>${dLabel}</h3><span class="cnt">${dayOpen.length} open</span><div class="ln"></div><button class="chipbtn" data-addfor="${sel}">＋ add here</button></div>`;
     html+=(dayOpen.length||dayDone.length)
       ?listWrap(dayOpen.map(t=>taskHTML(t,null)).join("")+dayDone.map(t=>taskHTML(t,null)).join(""))
-      :`<div class="empty">Nothing on this day.</div>`;
-  } else html+=`<div class="empty">Tap a day to see or add its tasks.</div>`;
+      :`<div class="empty">Nothing on this day. ${randomSticker()}</div>`;
+  } else html+=`<div class="empty">Tap a day to see or add its tasks. ${randomSticker()}</div>`;
   return html+`</div>`;
 }
 function allHTML(act,some){
@@ -690,7 +695,7 @@ function allHTML(act,some){
   if(s.length) body+=ghead("Someday",s.length)+s.map(t=>taskHTML(t,null)).join("");
   if(d.length) body+=ghead("Done",d.length)+d.map(t=>taskHTML(t,null)).join("");
   return `<div class="panel"><div class="toolbar"><h2>All tasks</h2><input class="search" id="qInput" placeholder="Search tasks…" value="${esc(state.q||"")}"><select class="filter" id="stFilter"><option value="">All statuses</option><option value="active"${state.stFilter==="active"?" selected":""}>Active</option><option value="someday"${state.stFilter==="someday"?" selected":""}>Someday</option><option value="done"${state.stFilter==="done"?" selected":""}>Done</option></select></div>${chips}${
-    body?listWrap(body):`<div class="empty">${q||state.domFilter||state.stFilter?"No tasks match this view.":"Nothing yet. Capture your first task above 👆"}</div>`}</div>`;
+    body?listWrap(body):`<div class="empty">${q||state.domFilter||state.stFilter?"No tasks match this view.":"Nothing yet. Capture your first task above "+randomSticker()}</div>`}</div>`;
 }
 let qFocus=false;
 function restoreSearch(){ if(!qFocus) return; qFocus=false; const i=$("#qInput"); if(i){ i.focus(); const v=i.value; try{ i.setSelectionRange(v.length,v.length); }catch(e){} } }
@@ -713,7 +718,7 @@ function weekHTML(act){
     return ghead(g.label,g.tasks.length)+g.tasks.map(t=>taskHTML(t,null)).join("");
   }).join("");
   return `<div class="panel"><div class="toolbar"><h2>This week</h2></div>${
-    act.length?listWrap(body):`<div class="empty">No active tasks. 🎉</div>`}</div>`;
+    act.length?listWrap(body):`<div class="empty">No active tasks. ${randomSticker()}</div>`}</div>`;
 }
 function briefHTML(){
   if(state.view!=="today") return "";
@@ -768,7 +773,7 @@ function render(){
   const dt=doneTodayList();
   if(dt.length) body+=ghead("Done today",dt.length)+dt.map(t=>taskHTML(t,null)).join("");
   c.innerHTML=`<div class="panel"><div class="toolbar"><h2>Today's plate</h2></div>${
-    body?listWrap(body):`<div class="empty">Nothing yet. Capture your first task above 👆</div>`}</div>`;
+    body?listWrap(body):`<div class="empty">Nothing yet. Capture your first task above 👆 ${randomSticker()}</div>`}</div>`;
 }
 
 /* events */
@@ -789,7 +794,7 @@ $("#content").addEventListener("click",e=>{
   if(act==="done"){
     const t=state.tasks.find(x=>x.id===id); const wasDone=t&&t.done;
     mutate(id,x=>{ x.done=!x.done; x.completedAt=x.done?Date.now():null; });
-    if(t&&!wasDone) showToast("✓ Done","Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; }));
+    if(t&&!wasDone) showToast(`✓ Done ${randomSticker()}`,"Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; }));
   }
 });
 $("#content").addEventListener("change",e=>{
@@ -799,7 +804,7 @@ $("#content").addEventListener("change",e=>{
     const v=e.target.value;
     if(v==="done"){
       const t=state.tasks.find(x=>x.id===sid);
-      if(t&&!t.done){ mutate(sid,x=>{ x.done=true; x.completedAt=Date.now(); }); showToast("✓ Done","Undo",()=>mutate(sid,x=>{ x.done=false; x.completedAt=null; })); }
+      if(t&&!t.done){ mutate(sid,x=>{ x.done=true; x.completedAt=Date.now(); }); showToast(`✓ Done ${randomSticker()}`,"Undo",()=>mutate(sid,x=>{ x.done=false; x.completedAt=null; })); }
     } else mutate(sid,x=>{ if(x.done){ x.done=false; x.completedAt=null; } x.bucket=v; });
     queuePrioritize();
   }
@@ -958,43 +963,56 @@ function mix(a,b,t){ const[ar,ag,ab]=hexToRgb(a),[br,bg,bb]=hexToRgb(b); return 
 const THEMES={
   screener:{label:"Original",emoji:"◆",
     light:{ink:"#231f1a",canvas:"#f9f7f2",accent:"#b82e4e",accent2:"#cf4d6a"},
-    dark:{ink:"#f3ede4",canvas:"#1a1613",accent:"#cf4d6a",accent2:"#b82e4e"}},
+    dark:{ink:"#f3ede4",canvas:"#1a1613",accent:"#cf4d6a",accent2:"#b82e4e"},
+    stickers:["✅","✨","⭐","📌","📎","🔖"]},
   summer:{label:"Summer",emoji:"☀️",
     light:{ink:"#1c3a3a",canvas:"#fdf8ec",accent:"#b5501a",accent2:"#00968a"},
-    dark:{ink:"#eaf6f4",canvas:"#0e2626",accent:"#c76825",accent2:"#2dd4c4"}},
+    dark:{ink:"#eaf6f4",canvas:"#0e2626",accent:"#c76825",accent2:"#2dd4c4"},
+    stickers:["☀️","🍉","🍹","🕶️","🏖️","🌊","🍦","🐚","🌺"]},
   fall:{label:"Fall",emoji:"🍂",
     light:{ink:"#2e1f14",canvas:"#faf3e7",accent:"#ad5717",accent2:"#7a2f22"},
-    dark:{ink:"#f3e6d6",canvas:"#1f150e",accent:"#c06f29",accent2:"#c1543a"}},
+    dark:{ink:"#f3e6d6",canvas:"#1f150e",accent:"#c06f29",accent2:"#c1543a"},
+    stickers:["🍂","🎃","🦃","🌰","🍁","🧣","☕","🍎","🦔"]},
   winter:{label:"Winter",emoji:"❄️",
     light:{ink:"#1b2733",canvas:"#f3f8fc",accent:"#2f7fd1",accent2:"#3f6f8f"},
-    dark:{ink:"#e9f2fa",canvas:"#101823",accent:"#4a89bd",accent2:"#8fd0e8"}, pattern:"dots"},
+    dark:{ink:"#e9f2fa",canvas:"#101823",accent:"#4a89bd",accent2:"#8fd0e8"}, pattern:"dots",
+    stickers:["❄️","⛄","☃️","🧣","🧤","🦌","🌨️","🧦","🔥"]},
   spring:{label:"Spring",emoji:"🌸",
     light:{ink:"#243318",canvas:"#f6faf0",accent:"#3f8530",accent2:"#b04a78"},
-    dark:{ink:"#eaf5e2",canvas:"#141f10",accent:"#539340",accent2:"#f090b3"}},
+    dark:{ink:"#eaf5e2",canvas:"#141f10",accent:"#539340",accent2:"#f090b3"},
+    stickers:["🌸","🌷","🐝","🦋","🌱","🐣","🌼","🐇","🌦️"]},
   halloween:{label:"Halloween",emoji:"🎃",
     light:{ink:"#20141f",canvas:"#f2e9da",accent:"#a8540c",accent2:"#6b2fa0"},
-    dark:{ink:"#f1e6d8",canvas:"#0f0a14",accent:"#c7691b",accent2:"#9b5de5"}, pattern:"stars"},
+    dark:{ink:"#f1e6d8",canvas:"#0f0a14",accent:"#c7691b",accent2:"#9b5de5"}, pattern:"stars",
+    stickers:["🎃","👻","🕸️","🦇","🍬","🕷️","💀","🧙","🌙"]},
   christmas:{label:"Christmas",emoji:"🎄",
     light:{ink:"#1b2b1f",canvas:"#f7f5ef",accent:"#b3261e",accent2:"#1e6b3e"},
-    dark:{ink:"#eef0ea",canvas:"#0e1a12",accent:"#e2564a",accent2:"#2f9e5c"}},
+    dark:{ink:"#eef0ea",canvas:"#0e1a12",accent:"#e2564a",accent2:"#2f9e5c"},
+    stickers:["🎄","🎅","❄️","🔔","🎁","⛄","🦌","🕯️","⭐"]},
   diwali:{label:"Diwali",emoji:"🪔",
     light:{ink:"#2b170f",canvas:"#fdf6e8",accent:"#95611a",accent2:"#8a2030"},
-    dark:{ink:"#f7ead0",canvas:"#1c0f0a",accent:"#ac7628",accent2:"#d1445a"}},
+    dark:{ink:"#f7ead0",canvas:"#1c0f0a",accent:"#ac7628",accent2:"#d1445a"},
+    stickers:["🪔","✨","🎇","🌟","🕉️","💐","🎆","🧨","🙏"]},
   fun:{label:"Fun",emoji:"🎉",
     light:{ink:"#241a3d",canvas:"#fbf7ff",accent:"#7c3aed",accent2:"#0891b2"},
-    dark:{ink:"#f3ecff",canvas:"#160f26",accent:"#8f77d7",accent2:"#22d3ee"}},
+    dark:{ink:"#f3ecff",canvas:"#160f26",accent:"#8f77d7",accent2:"#22d3ee"},
+    stickers:["🎉","🎊","🌈","🎈","🦄","✨","🍭","🎨","🥳"]},
   girly:{label:"Girly",emoji:"🎀",
     light:{ink:"#3d1f2e",canvas:"#fff5f8",accent:"#c23d78",accent2:"#7c4bb0"},
-    dark:{ink:"#fbe4ef",canvas:"#230f1a",accent:"#d15698",accent2:"#c084fc"}},
+    dark:{ink:"#fbe4ef",canvas:"#230f1a",accent:"#d15698",accent2:"#c084fc"},
+    stickers:["🎀","💅","💖","🌸","✨","👛","💋","🩰","🦄","💄","👗","💕"]},
   boyish:{label:"Boyish",emoji:"⚡",
     light:{ink:"#101c2c",canvas:"#f3f6f9",accent:"#2255c9",accent2:"#0d7d70"},
-    dark:{ink:"#e6edf5",canvas:"#0a121e",accent:"#527ed9",accent2:"#2dd4bf"}},
+    dark:{ink:"#e6edf5",canvas:"#0a121e",accent:"#527ed9",accent2:"#2dd4bf"},
+    stickers:["⚡","🏀","🎮","🚀","🔥","🏈","🤘","🛹","🥇"]},
   professional:{label:"Professional",emoji:"💼",
     light:{ink:"#20242b",canvas:"#f5f6f7",accent:"#33475b",accent2:"#5b7691"},
-    dark:{ink:"#e8eaed",canvas:"#15181c",accent:"#70859a",accent2:"#9fb3c7"}},
+    dark:{ink:"#e8eaed",canvas:"#15181c",accent:"#70859a",accent2:"#9fb3c7"},
+    stickers:["📎","📊","💼","📈","✅","🖇️","📅"]},
   tech:{label:"Tech",emoji:"💻",
     light:{ink:"#0d1b12",canvas:"#f1f7f2",accent:"#138c40",accent2:"#0369a1"},
-    dark:{ink:"#d7ffe4",canvas:"#0a0f0d",accent:"#1e9a50",accent2:"#38bdf8"}, pattern:"grid"},
+    dark:{ink:"#d7ffe4",canvas:"#0a0f0d",accent:"#1e9a50",accent2:"#38bdf8"}, pattern:"grid",
+    stickers:["💻","🖥️","⌨️","🔌","🤖","👾","🛰️","🔋","📡"]},
 };
 
 function deriveMode(seed,dark){
@@ -1055,6 +1073,7 @@ function applyThemeVars(){
   document.body.style.backgroundImage=pat?pat.image:"";
   document.body.style.backgroundSize=pat?pat.size:"";
   document.body.dataset.theme=id;
+  assignStickers(); renderStickerSlots();
   render();
 }
 function renderThemeSwatches(){
@@ -1062,11 +1081,30 @@ function renderThemeSwatches(){
   const dark=state.config.mode==="dark";
   $("#themeGrid").innerHTML=Object.entries(THEMES).map(([id,t])=>{
     const seed=dark?t.dark:t.light;
+    const stick=(t.stickers||[]).slice(0,3).join(" ");
     return `<button type="button" class="themeswatch${id===cur?" on":""}" data-theme="${id}">
       <span class="dot" style="background:linear-gradient(135deg,${seed.accent2},${seed.accent});border:2px solid ${seed.canvas}"></span>
       <span>${t.emoji} ${esc(t.label)}</span>
+      <span class="swatch-stickers">${stick}</span>
     </button>`;
   }).join("");
+}
+
+/* stickers — decorative per-theme emoji, layered onto chrome (stat cards, panel headers,
+   sidebar) plus sprinkled into empty states and the done-toast. Chrome placements are
+   assigned ONCE per theme application (stable across re-renders, so they don't flicker
+   every time render() runs) and reshuffle only when the theme/mode changes; empty-state
+   and toast placements draw fresh every time they're shown, for a little variety. */
+function themeStickers(){ const t=THEMES[state.config.theme]; return (t&&t.stickers&&t.stickers.length)?t.stickers:["✨"]; }
+function randomSticker(){ const p=themeStickers(); return p[Math.floor(Math.random()*p.length)]; }
+let stickerSlots={};
+function assignStickers(){
+  const pick=randomSticker;
+  stickerSlots={ stat1:pick(), stat2:pick(), stat3:pick(), stat4:pick(),
+    panelDue:pick(), panelQueue:pick(), panelDone:pick(), panelDomain:pick(), sidebar:pick() };
+}
+function renderStickerSlots(){
+  for(const [id,em] of Object.entries(stickerSlots)){ const el=document.getElementById("sk_"+id); if(el) el.textContent=em; }
 }
 function setThemeId(id){
   if(!THEMES[id]||id===state.config.theme) return;

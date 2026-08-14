@@ -46,6 +46,27 @@ function paletteFor(themeId, mode) {
 }
 // Fallback defaults (screener/light) — reassigned below once /week returns theme+mode.
 let BG = "#FFFFFF", TEXT = "#231f1a", DIM = "#847a71", DONE = "#2f7d52", BRAND = "#b82e4e";
+
+// Same pools as the web app's THEMES catalog — one sticker in the widget title per render.
+const STICKER_POOLS = {
+  screener: ["✅","✨","⭐","📌","📎","🔖"],
+  summer: ["☀️","🍉","🍹","🕶️","🏖️","🌊","🍦","🐚","🌺"],
+  fall: ["🍂","🎃","🦃","🌰","🍁","🧣","☕","🍎","🦔"],
+  winter: ["❄️","⛄","☃️","🧣","🧤","🦌","🌨️","🧦","🔥"],
+  spring: ["🌸","🌷","🐝","🦋","🌱","🐣","🌼","🐇","🌦️"],
+  halloween: ["🎃","👻","🕸️","🦇","🍬","🕷️","💀","🧙","🌙"],
+  christmas: ["🎄","🎅","❄️","🔔","🎁","⛄","🦌","🕯️","⭐"],
+  diwali: ["🪔","✨","🎇","🌟","🕉️","💐","🎆","🧨","🙏"],
+  fun: ["🎉","🎊","🌈","🎈","🦄","✨","🍭","🎨","🥳"],
+  girly: ["🎀","💅","💖","🌸","✨","👛","💋","🩰","🦄","💄","👗","💕"],
+  boyish: ["⚡","🏀","🎮","🚀","🔥","🏈","🤘","🛹","🥇"],
+  professional: ["📎","📊","💼","📈","✅","🖇️","📅"],
+  tech: ["💻","🖥️","⌨️","🔌","🤖","👾","🛰️","🔋","📡"],
+};
+function randomSticker(themeId) {
+  const pool = STICKER_POOLS[themeId] || STICKER_POOLS.screener;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
 const DAY_STYLE = {
   Monday:    { c: "#e0443e", e: "🚗" },
   Tuesday:   { c: "#e78f2e", e: "🦁" },
@@ -137,7 +158,7 @@ function build(data) {
   // header
   const head = w.addStack();
   head.centerAlignContent();
-  const title = head.addText(size === "small" ? "Today" : "This week");
+  const title = head.addText((size === "small" ? "Today" : "This week") + " " + randomSticker(data && data.theme));
   title.font = Font.boldSystemFont(15);
   title.textColor = new Color(TEXT);
   head.addSpacer();
@@ -213,7 +234,7 @@ function buildDay(data, param) {
     : (DAY_STYLE[label] || DAY_STYLE[param[0].toUpperCase() + param.slice(1)] || { c: TEXT, e: "" });
   const head = w.addStack();
   head.centerAlignContent();
-  const name = head.addText(`${label} ${st.e}`);
+  const name = head.addText(`${label} ${st.e} ${randomSticker(data && data.theme)}`);
   name.font = Font.boldSystemFont(15);
   name.textColor = new Color(st.c);
   head.addSpacer();

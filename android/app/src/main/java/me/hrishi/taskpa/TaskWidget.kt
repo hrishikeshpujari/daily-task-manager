@@ -92,6 +92,28 @@ class TaskWidget : AppWidgetProvider() {
             return Palette(ink = seed.ink, paper = paper, muted = muted, accent = seed.accent, line2 = line2)
         }
 
+        // Same pools as the web app's THEMES catalog (index.html) — one sticker in the
+        // widget title per render, kept minimal since row space is precious here.
+        private val STICKER_POOLS: Map<String, List<String>> = mapOf(
+            "screener" to listOf("✅", "✨", "⭐", "📌", "📎", "🔖"),
+            "summer" to listOf("☀️", "🍉", "🍹", "🕶️", "🏖️", "🌊", "🍦", "🐚", "🌺"),
+            "fall" to listOf("🍂", "🎃", "🦃", "🌰", "🍁", "🧣", "☕", "🍎", "🦔"),
+            "winter" to listOf("❄️", "⛄", "☃️", "🧣", "🧤", "🦌", "🌨️", "🧦", "🔥"),
+            "spring" to listOf("🌸", "🌷", "🐝", "🦋", "🌱", "🐣", "🌼", "🐇", "🌦️"),
+            "halloween" to listOf("🎃", "👻", "🕸️", "🦇", "🍬", "🕷️", "💀", "🧙", "🌙"),
+            "christmas" to listOf("🎄", "🎅", "❄️", "🔔", "🎁", "⛄", "🦌", "🕯️", "⭐"),
+            "diwali" to listOf("🪔", "✨", "🎇", "🌟", "🕉️", "💐", "🎆", "🧨", "🙏"),
+            "fun" to listOf("🎉", "🎊", "🌈", "🎈", "🦄", "✨", "🍭", "🎨", "🥳"),
+            "girly" to listOf("🎀", "💅", "💖", "🌸", "✨", "👛", "💋", "🩰", "🦄", "💄", "👗", "💕"),
+            "boyish" to listOf("⚡", "🏀", "🎮", "🚀", "🔥", "🏈", "🤘", "🛹", "🥇"),
+            "professional" to listOf("📎", "📊", "💼", "📈", "✅", "🖇️", "📅"),
+            "tech" to listOf("💻", "🖥️", "⌨️", "🔌", "🤖", "👾", "🛰️", "🔋", "📡"),
+        )
+        private fun randomSticker(themeId: String): String {
+            val pool = STICKER_POOLS[themeId] ?: STICKER_POOLS.getValue("screener")
+            return pool.random()
+        }
+
         fun updateAll(context: Context) {
             val mgr = AppWidgetManager.getInstance(context)
             val ids = mgr.getAppWidgetIds(ComponentName(context, TaskWidget::class.java))
@@ -171,7 +193,9 @@ class TaskWidget : AppWidgetProvider() {
             val tasks = Store.loadTasks(context)
             val dayMeta = DAY_META[mode]
             val isDayCard = dayMeta != null || mode == "someday"
-            val pal = paletteFor(Store.theme(context), Store.themeMode(context))
+            val themeId = Store.theme(context)
+            val pal = paletteFor(themeId, Store.themeMode(context))
+            val sticker = randomSticker(themeId)
 
             // Card shape is fixed (widget_bg/add_btn_bg/circle_check); only the fill color
             // is retinted, via ImageView colorFilter so the rounded corners survive.
@@ -204,17 +228,17 @@ class TaskWidget : AppWidgetProvider() {
             }
 
             if (dayMeta != null) {
-                v.setTextViewText(R.id.wTitle, dayMeta.first + " " + dayMeta.second)
+                v.setTextViewText(R.id.wTitle, dayMeta.first + " " + dayMeta.second + " " + sticker)
                 v.setTextColor(R.id.wTitle, dayMeta.third)
                 v.setTextViewText(R.id.doneCount, open.size.toString())
                 v.setTextColor(R.id.doneCount, pal.ink)
             } else if (mode == "someday") {
-                v.setTextViewText(R.id.wTitle, "Someday 💭")
+                v.setTextViewText(R.id.wTitle, "Someday 💭 $sticker")
                 v.setTextColor(R.id.wTitle, pal.accent)
                 v.setTextViewText(R.id.doneCount, open.size.toString())
                 v.setTextColor(R.id.doneCount, pal.ink)
             } else {
-                v.setTextViewText(R.id.wTitle, if (mode == "week") "This Week" else "Today")
+                v.setTextViewText(R.id.wTitle, (if (mode == "week") "This Week" else "Today") + " " + sticker)
                 v.setTextColor(R.id.wTitle, pal.ink)
                 v.setTextViewText(R.id.doneCount, "✓ " + Store.doneToday(tasks) + " today")
                 v.setTextColor(R.id.doneCount, 0xFF2F7D52.toInt())
