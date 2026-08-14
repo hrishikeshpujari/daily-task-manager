@@ -52,6 +52,46 @@ class TaskWidget : AppWidgetProvider() {
         private val TEXTS = intArrayOf(R.id.text1, R.id.text2, R.id.text3, R.id.text4, R.id.text5)
         private val WHYS = intArrayOf(R.id.why1, R.id.why2, R.id.why3, R.id.why4, R.id.why5)
 
+        // ── Theme palette — mirrors the web app's THEMES catalog (index.html) seed-for-seed,
+        // including the contrast-corrected dark accents. Semantic priority colors (tierColor
+        // below) intentionally stay fixed across every theme; only these tokens follow the
+        // person's pick, read from Store (kept current by SyncWorker + the WebView mirror). ──
+        private data class Seed(val ink: Int, val canvas: Int, val accent: Int)
+        private data class Palette(val ink: Int, val paper: Int, val muted: Int, val accent: Int, val line2: Int)
+        private fun h(s: String) = android.graphics.Color.parseColor(s)
+        private fun mixC(a: Int, b: Int, t: Double): Int {
+            val ar = (a shr 16) and 0xFF; val ag = (a shr 8) and 0xFF; val ab = a and 0xFF
+            val br = (b shr 16) and 0xFF; val bg = (b shr 8) and 0xFF; val bb = b and 0xFF
+            val r = (ar + (br - ar) * t).toInt().coerceIn(0, 255)
+            val g = (ag + (bg - ag) * t).toInt().coerceIn(0, 255)
+            val bl = (ab + (bb - ab) * t).toInt().coerceIn(0, 255)
+            return (0xFF shl 24) or (r shl 16) or (g shl 8) or bl
+        }
+        private val THEME_SEEDS: Map<String, Pair<Seed, Seed>> = mapOf(
+            "screener" to (Seed(h("#231f1a"), h("#f9f7f2"), h("#b82e4e")) to Seed(h("#f3ede4"), h("#1a1613"), h("#cf4d6a"))),
+            "summer" to (Seed(h("#1c3a3a"), h("#fdf8ec"), h("#b5501a")) to Seed(h("#eaf6f4"), h("#0e2626"), h("#c76825"))),
+            "fall" to (Seed(h("#2e1f14"), h("#faf3e7"), h("#ad5717")) to Seed(h("#f3e6d6"), h("#1f150e"), h("#c06f29"))),
+            "winter" to (Seed(h("#1b2733"), h("#f3f8fc"), h("#2f7fd1")) to Seed(h("#e9f2fa"), h("#101823"), h("#4a89bd"))),
+            "spring" to (Seed(h("#243318"), h("#f6faf0"), h("#3f8530")) to Seed(h("#eaf5e2"), h("#141f10"), h("#539340"))),
+            "halloween" to (Seed(h("#20141f"), h("#f2e9da"), h("#a8540c")) to Seed(h("#f1e6d8"), h("#0f0a14"), h("#c7691b"))),
+            "christmas" to (Seed(h("#1b2b1f"), h("#f7f5ef"), h("#b3261e")) to Seed(h("#eef0ea"), h("#0e1a12"), h("#e2564a"))),
+            "diwali" to (Seed(h("#2b170f"), h("#fdf6e8"), h("#95611a")) to Seed(h("#f7ead0"), h("#1c0f0a"), h("#ac7628"))),
+            "fun" to (Seed(h("#241a3d"), h("#fbf7ff"), h("#7c3aed")) to Seed(h("#f3ecff"), h("#160f26"), h("#8f77d7"))),
+            "girly" to (Seed(h("#3d1f2e"), h("#fff5f8"), h("#c23d78")) to Seed(h("#fbe4ef"), h("#230f1a"), h("#d15698"))),
+            "boyish" to (Seed(h("#101c2c"), h("#f3f6f9"), h("#2255c9")) to Seed(h("#e6edf5"), h("#0a121e"), h("#527ed9"))),
+            "professional" to (Seed(h("#20242b"), h("#f5f6f7"), h("#33475b")) to Seed(h("#e8eaed"), h("#15181c"), h("#70859a"))),
+            "tech" to (Seed(h("#0d1b12"), h("#f1f7f2"), h("#138c40")) to Seed(h("#d7ffe4"), h("#0a0f0d"), h("#1e9a50"))),
+        )
+        private fun paletteFor(themeId: String, mode: String): Palette {
+            val pair = THEME_SEEDS[themeId] ?: THEME_SEEDS.getValue("screener")
+            val dark = mode == "dark"
+            val seed = if (dark) pair.second else pair.first
+            val paper = if (dark) mixC(seed.canvas, seed.ink, 0.07) else mixC(seed.canvas, h("#ffffff"), 0.8)
+            val muted = if (dark) mixC(seed.ink, seed.canvas, 0.45) else mixC(seed.ink, seed.canvas, 0.56)
+            val line2 = if (dark) mixC(seed.canvas, seed.ink, 0.25) else mixC(seed.canvas, seed.ink, 0.19)
+            return Palette(ink = seed.ink, paper = paper, muted = muted, accent = seed.accent, line2 = line2)
+        }
+
         fun updateAll(context: Context) {
             val mgr = AppWidgetManager.getInstance(context)
             val ids = mgr.getAppWidgetIds(ComponentName(context, TaskWidget::class.java))
@@ -131,6 +171,14 @@ class TaskWidget : AppWidgetProvider() {
             val tasks = Store.loadTasks(context)
             val dayMeta = DAY_META[mode]
             val isDayCard = dayMeta != null || mode == "someday"
+            val pal = paletteFor(Store.theme(context), Store.themeMode(context))
+
+            // Card shape is fixed (widget_bg/add_btn_bg/circle_check); only the fill color
+            // is retinted, via ImageView colorFilter so the rounded corners survive.
+            v.setInt(R.id.bgImg, "setColorFilter", pal.paper)
+            v.setInt(R.id.addBtnBg, "setColorFilter", pal.accent)
+            v.setTextColor(R.id.refreshBtn, pal.muted)
+            v.setTextColor(R.id.empty, pal.muted)
 
             val open: List<org.json.JSONObject> = when {
                 dayMeta != null -> {
@@ -159,15 +207,15 @@ class TaskWidget : AppWidgetProvider() {
                 v.setTextViewText(R.id.wTitle, dayMeta.first + " " + dayMeta.second)
                 v.setTextColor(R.id.wTitle, dayMeta.third)
                 v.setTextViewText(R.id.doneCount, open.size.toString())
-                v.setTextColor(R.id.doneCount, 0xFF231F1A.toInt())
+                v.setTextColor(R.id.doneCount, pal.ink)
             } else if (mode == "someday") {
                 v.setTextViewText(R.id.wTitle, "Someday 💭")
-                v.setTextColor(R.id.wTitle, 0xFF9A5FD8.toInt())
+                v.setTextColor(R.id.wTitle, pal.accent)
                 v.setTextViewText(R.id.doneCount, open.size.toString())
-                v.setTextColor(R.id.doneCount, 0xFF231F1A.toInt())
+                v.setTextColor(R.id.doneCount, pal.ink)
             } else {
                 v.setTextViewText(R.id.wTitle, if (mode == "week") "This Week" else "Today")
-                v.setTextColor(R.id.wTitle, 0xFF231F1A.toInt())
+                v.setTextColor(R.id.wTitle, pal.ink)
                 v.setTextViewText(R.id.doneCount, "✓ " + Store.doneToday(tasks) + " today")
                 v.setTextColor(R.id.doneCount, 0xFF2F7D52.toInt())
             }
@@ -178,6 +226,7 @@ class TaskWidget : AppWidgetProvider() {
             if (brief.isNotBlank() && !isDayCard) {
                 v.setViewVisibility(R.id.brief, View.VISIBLE)
                 v.setTextViewText(R.id.brief, "✨ $brief")
+                v.setTextColor(R.id.brief, pal.accent)
             } else v.setViewVisibility(R.id.brief, View.GONE)
 
             val openApp = PendingIntent.getActivity(context, 1,
@@ -188,6 +237,8 @@ class TaskWidget : AppWidgetProvider() {
                 if (i < open.size) {
                     val t = open[i]
                     v.setViewVisibility(ROWS[i], View.VISIBLE)
+                    v.setTextColor(TEXTS[i], pal.ink)
+                    v.setInt(CHECKS[i], "setColorFilter", pal.line2)
                     val pinned = t.optString("pinnedFor") == Store.localKey()
                     if (pinned) v.setTextViewText(TEXTS[i], "🎯 " + t.optString("text"))
                     else {
@@ -203,6 +254,7 @@ class TaskWidget : AppWidgetProvider() {
                     if (sub.isNotBlank()) {
                         v.setViewVisibility(WHYS[i], View.VISIBLE)
                         v.setTextViewText(WHYS[i], sub)
+                        v.setTextColor(WHYS[i], pal.accent)
                     } else v.setViewVisibility(WHYS[i], View.GONE)
 
                     val done = Intent(context, TaskWidget::class.java)

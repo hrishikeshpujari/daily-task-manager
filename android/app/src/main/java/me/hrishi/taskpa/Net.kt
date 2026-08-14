@@ -46,20 +46,37 @@ object Net {
         return bestId
     }
 
-    fun fetchTasks(token: String, gistId: String): JSONArray {
+    /** Whole-gist fetch: tasks plus the theme/mode the web app last picked. */
+    data class AppData(val tasks: JSONArray, val theme: String?, val mode: String?, val themeUpdatedAt: Long)
+
+    fun fetchAppData(token: String, gistId: String): AppData {
         val g = JSONObject(gh(token, "https://api.github.com/gists/$gistId"))
-        val f = g.optJSONObject("files")?.optJSONObject(GIST_FILE) ?: return JSONArray()
+        val f = g.optJSONObject("files")?.optJSONObject(GIST_FILE) ?: return AppData(JSONArray(), null, null, 0L)
         var content = f.optString("content")
         if (f.optBoolean("truncated") && f.optString("raw_url").isNotBlank()) {
             client.newCall(Request.Builder().url(f.optString("raw_url")).build()).execute().use { r ->
                 content = r.body?.string() ?: content
             }
         }
-        return try { JSONObject(content).optJSONArray("tasks") ?: JSONArray() } catch (e: Exception) { JSONArray() }
+        return try {
+            val p = JSONObject(content)
+            AppData(
+                p.optJSONArray("tasks") ?: JSONArray(),
+                if (p.has("theme")) p.optString("theme") else null,
+                if (p.has("mode")) p.optString("mode") else null,
+                p.optLong("themeUpdatedAt", 0L)
+            )
+        } catch (e: Exception) { AppData(JSONArray(), null, null, 0L) }
     }
 
-    fun pushTasks(token: String, gistId: String, tasks: JSONArray) {
-        val content = JSONObject().put("v", 1).put("tasks", tasks).toString(2)
+    /** theme/mode/themeUpdatedAt are always re-sent as-is (Android never originates a theme
+     *  change) so a background sync never clobbers what the web app last wrote. */
+    fun pushTasks(token: String, gistId: String, tasks: JSONArray, theme: String?, mode: String?, themeUpdatedAt: Long) {
+        val content = JSONObject().put("v", 1).put("tasks", tasks)
+            .apply { if (!theme.isNullOrBlank()) put("theme", theme) }
+            .apply { if (!mode.isNullOrBlank()) put("mode", mode) }
+            .put("themeUpdatedAt", themeUpdatedAt)
+            .toString(2)
         val body = JSONObject()
             .put("files", JSONObject().put(GIST_FILE, JSONObject().put("content", content)))
             .toString()

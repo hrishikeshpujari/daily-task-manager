@@ -14,8 +14,38 @@ const SECRET     = "PASTE-YOUR-PERSONAL-SECRET-HERE";               // your secr
 const APP_URL    = "https://hrishikeshpujari.github.io/daily-task-manager/";
 const TZ         = "America/Los_Angeles";
 
-// Screener-app color scheme (matches the web app): ink on white, berry brand.
-const BG = "#FFFFFF", TEXT = "#231f1a", DIM = "#847a71", DONE = "#2f7d52", BRAND = "#b82e4e";
+// ── Theme palette — mirrors the web app's THEMES catalog (index.html) seed-for-seed,
+// including the contrast-corrected dark accents, using the SAME mix() derivation so this
+// widget renders identically to the web app and the Android widget for a given theme+mode.
+// Falls back to "screener"/light when the Worker hasn't returned theme/mode yet.
+function hexToRgb(h){ h=h.replace("#",""); if(h.length===3) h=h.split("").map(c=>c+c).join(""); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function rgbToHex(r,g,b){ return "#"+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0")).join(""); }
+function mix(a,b,t){ const p=hexToRgb(a),q=hexToRgb(b); return rgbToHex(p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t,p[2]+(q[2]-p[2])*t); }
+const THEME_SEEDS = {
+  screener:{light:{ink:"#231f1a",canvas:"#f9f7f2",accent:"#b82e4e"},dark:{ink:"#f3ede4",canvas:"#1a1613",accent:"#cf4d6a"}},
+  summer:{light:{ink:"#1c3a3a",canvas:"#fdf8ec",accent:"#b5501a"},dark:{ink:"#eaf6f4",canvas:"#0e2626",accent:"#c76825"}},
+  fall:{light:{ink:"#2e1f14",canvas:"#faf3e7",accent:"#ad5717"},dark:{ink:"#f3e6d6",canvas:"#1f150e",accent:"#c06f29"}},
+  winter:{light:{ink:"#1b2733",canvas:"#f3f8fc",accent:"#2f7fd1"},dark:{ink:"#e9f2fa",canvas:"#101823",accent:"#4a89bd"}},
+  spring:{light:{ink:"#243318",canvas:"#f6faf0",accent:"#3f8530"},dark:{ink:"#eaf5e2",canvas:"#141f10",accent:"#539340"}},
+  halloween:{light:{ink:"#20141f",canvas:"#f2e9da",accent:"#a8540c"},dark:{ink:"#f1e6d8",canvas:"#0f0a14",accent:"#c7691b"}},
+  christmas:{light:{ink:"#1b2b1f",canvas:"#f7f5ef",accent:"#b3261e"},dark:{ink:"#eef0ea",canvas:"#0e1a12",accent:"#e2564a"}},
+  diwali:{light:{ink:"#2b170f",canvas:"#fdf6e8",accent:"#95611a"},dark:{ink:"#f7ead0",canvas:"#1c0f0a",accent:"#ac7628"}},
+  fun:{light:{ink:"#241a3d",canvas:"#fbf7ff",accent:"#7c3aed"},dark:{ink:"#f3ecff",canvas:"#160f26",accent:"#8f77d7"}},
+  girly:{light:{ink:"#3d1f2e",canvas:"#fff5f8",accent:"#c23d78"},dark:{ink:"#fbe4ef",canvas:"#230f1a",accent:"#d15698"}},
+  boyish:{light:{ink:"#101c2c",canvas:"#f3f6f9",accent:"#2255c9"},dark:{ink:"#e6edf5",canvas:"#0a121e",accent:"#527ed9"}},
+  professional:{light:{ink:"#20242b",canvas:"#f5f6f7",accent:"#33475b"},dark:{ink:"#e8eaed",canvas:"#15181c",accent:"#70859a"}},
+  tech:{light:{ink:"#0d1b12",canvas:"#f1f7f2",accent:"#138c40"},dark:{ink:"#d7ffe4",canvas:"#0a0f0d",accent:"#1e9a50"}},
+};
+function paletteFor(themeId, mode) {
+  const t = THEME_SEEDS[themeId] || THEME_SEEDS.screener;
+  const dark = mode === "dark";
+  const seed = dark ? t.dark : t.light;
+  const paper = dark ? mix(seed.canvas, seed.ink, 0.07) : mix(seed.canvas, "#ffffff", 0.8);
+  const muted = dark ? mix(seed.ink, seed.canvas, 0.45) : mix(seed.ink, seed.canvas, 0.56);
+  return { bg: paper, text: seed.ink, dim: muted, accent: seed.accent, done: dark ? "#5cc98d" : "#2f7d52" };
+}
+// Fallback defaults (screener/light) — reassigned below once /week returns theme+mode.
+let BG = "#FFFFFF", TEXT = "#231f1a", DIM = "#847a71", DONE = "#2f7d52", BRAND = "#b82e4e";
 const DAY_STYLE = {
   Monday:    { c: "#e0443e", e: "🚗" },
   Tuesday:   { c: "#e78f2e", e: "🦁" },
@@ -212,6 +242,8 @@ function buildDay(data, param) {
 const PARAM = (args.widgetParameter || "").trim().toLowerCase();
 const DAY_PARAMS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday","today","tomorrow","someday"];
 const data = await fetchWeek();
+const pal = paletteFor((data && data.theme) || "screener", (data && data.mode) || "light");
+BG = pal.bg; TEXT = pal.text; DIM = pal.dim; DONE = pal.done; BRAND = pal.accent;
 const widget = DAY_PARAMS.includes(PARAM) ? buildDay(data, PARAM) : build(data);
 if (config.runsInWidget) Script.setWidget(widget);
 else await widget.presentMedium();

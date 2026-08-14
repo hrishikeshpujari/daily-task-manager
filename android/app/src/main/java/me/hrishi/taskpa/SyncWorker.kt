@@ -43,7 +43,17 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 return@withContext Result.success()
             }
 
-            var merged = Store.merge(Store.loadTasks(ctx), Net.fetchTasks(token, gistId))
+            val remote = Net.fetchAppData(token, gistId)
+            var merged = Store.merge(Store.loadTasks(ctx), remote.tasks)
+
+            // Theme changes only ever originate from the web app; adopt the gist's copy
+            // whenever it's newer than what we last cached (same LWW rule the web app uses),
+            // and always re-send the current value so a background sync can't erase it.
+            var theme = Store.theme(ctx); var mode = Store.themeMode(ctx); var themeAt = Store.themeUpdatedAt(ctx)
+            if (remote.themeUpdatedAt > themeAt) {
+                theme = remote.theme ?: theme; mode = remote.mode ?: mode; themeAt = remote.themeUpdatedAt
+                Store.setThemeState(ctx, theme, mode, themeAt)
+            }
 
             val proxy = Store.proxyUrl(ctx)
             val secret = Store.appSecret(ctx)
@@ -55,7 +65,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 }
             }
 
-            Net.pushTasks(token, gistId, merged)
+            Net.pushTasks(token, gistId, merged, theme, mode, themeAt)
             Store.saveTasks(ctx, merged)
             TaskWidget.updateAll(ctx)
             Result.success()

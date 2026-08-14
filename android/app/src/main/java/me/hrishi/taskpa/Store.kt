@@ -25,6 +25,14 @@ object Store {
     fun appSecret(ctx: Context) = prefs(ctx).getString("appSecret", "") ?: ""
     fun setGistId(ctx: Context, id: String) = prefs(ctx).edit().putString("gistId", id).apply()
 
+    // Theme/mode the person picked in the web app — mirrored here (see mirrorFromWeb) and
+    // via direct gist sync (SyncWorker) so the widget can match without ever opening the app.
+    fun theme(ctx: Context) = prefs(ctx).getString("theme", "screener") ?: "screener"
+    fun themeMode(ctx: Context) = prefs(ctx).getString("themeMode", "light") ?: "light"
+    fun themeUpdatedAt(ctx: Context) = prefs(ctx).getLong("themeUpdatedAt", 0L)
+    fun setThemeState(ctx: Context, theme: String, mode: String, updatedAt: Long) =
+        prefs(ctx).edit().putString("theme", theme).putString("themeMode", mode).putLong("themeUpdatedAt", updatedAt).apply()
+
     fun localKey(ts: Long = System.currentTimeMillis()): String =
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(ts))
 
@@ -57,6 +65,14 @@ object Store {
                 e.putString("gistId", c.optString("gistId"))
                 e.putString("proxyUrl", c.optString("proxyUrl"))
                 e.putString("appSecret", c.optString("appSecret"))
+                // Only adopt the WebView's theme if it's at least as fresh as what we already
+                // have — SyncWorker's direct-gist path may have seen a newer pick already.
+                val webAt = c.optLong("themeUpdatedAt", 0L)
+                if (webAt >= themeUpdatedAt(ctx) && c.has("theme")) {
+                    e.putString("theme", c.optString("theme", "screener"))
+                    e.putString("themeMode", c.optString("mode", "light"))
+                    e.putLong("themeUpdatedAt", webAt)
+                }
             }
         } catch (_: Exception) {}
         try {

@@ -1,10 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@drawable/widget_bg"
-    android:padding="14dp">
+    android:layout_height="match_parent">
+
+    <!-- Card shape stays fixed (widget_bg's rounded rect + border); only its fill color is
+         retinted per-theme at runtime via setColorFilter, which preserves the shape — a
+         plain setBackgroundColor would replace the drawable and lose the rounded corners. -->
+    <ImageView
+        android:id="@+id/bgImg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_bg"
+        android:contentDescription="@null" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="14dp">
 
     <LinearLayout
         android:id="@+id/header"
@@ -41,16 +55,23 @@
             android:textSize="15sp"
             android:layout_marginEnd="6dp" />
 
-        <TextView
-            android:id="@+id/addBtn"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
-            android:gravity="center"
-            android:background="@drawable/add_btn_bg"
-            android:text="＋"
-            android:textColor="#FFFFFF"
-            android:textSize="17sp"
-            android:textStyle="bold" />
+        <FrameLayout android:layout_width="30dp" android:layout_height="30dp">
+            <ImageView
+                android:id="@+id/addBtnBg"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:src="@drawable/add_btn_bg"
+                android:contentDescription="@null" />
+            <TextView
+                android:id="@+id/addBtn"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:text="＋"
+                android:textColor="#FFFFFF"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+        </FrameLayout>
     </LinearLayout>
 
     <TextView
@@ -72,7 +93,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="9dp"
         android:visibility="gone">
-        <ImageView android:id="@+id/check1" android:layout_width="22dp" android:layout_height="22dp" android:background="@drawable/circle_check" android:contentDescription="@string/add" />
+        <ImageView android:id="@+id/check1" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/circle_check" android:contentDescription="@string/add" />
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="10dp">
             <TextView android:id="@+id/text1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="13.5sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/why1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/pa" android:textSize="10.5sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
@@ -87,7 +108,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="9dp"
         android:visibility="gone">
-        <ImageView android:id="@+id/check2" android:layout_width="22dp" android:layout_height="22dp" android:background="@drawable/circle_check" android:contentDescription="@string/add" />
+        <ImageView android:id="@+id/check2" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/circle_check" android:contentDescription="@string/add" />
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="10dp">
             <TextView android:id="@+id/text2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="13.5sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/why2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/pa" android:textSize="10.5sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
@@ -102,7 +123,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="9dp"
         android:visibility="gone">
-        <ImageView android:id="@+id/check3" android:layout_width="22dp" android:layout_height="22dp" android:background="@drawable/circle_check" android:contentDescription="@string/add" />
+        <ImageView android:id="@+id/check3" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/circle_check" android:contentDescription="@string/add" />
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="10dp">
             <TextView android:id="@+id/text3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="13.5sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/why3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/pa" android:textSize="10.5sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
@@ -117,7 +138,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="9dp"
         android:visibility="gone">
-        <ImageView android:id="@+id/check4" android:layout_width="22dp" android:layout_height="22dp" android:background="@drawable/circle_check" android:contentDescription="@string/add" />
+        <ImageView android:id="@+id/check4" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/circle_check" android:contentDescription="@string/add" />
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="10dp">
             <TextView android:id="@+id/text4" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="13.5sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/why4" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/pa" android:textSize="10.5sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
@@ -132,7 +153,7 @@
         android:gravity="center_vertical"
         android:layout_marginTop="9dp"
         android:visibility="gone">
-        <ImageView android:id="@+id/check5" android:layout_width="22dp" android:layout_height="22dp" android:background="@drawable/circle_check" android:contentDescription="@string/add" />
+        <ImageView android:id="@+id/check5" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/circle_check" android:contentDescription="@string/add" />
         <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="10dp">
             <TextView android:id="@+id/text5" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/text" android:textSize="13.5sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/why5" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/pa" android:textSize="10.5sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
@@ -149,4 +170,5 @@
         android:textColor="@color/dim"
         android:textSize="13sp"
         android:visibility="gone" />
-</LinearLayout>
+    </LinearLayout>
+</FrameLayout>

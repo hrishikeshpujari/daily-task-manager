@@ -91,17 +91,17 @@ export default {
         if (fields.domain) task.domain = fields.domain;
         if (fields.time) task.time = fields.time;
 
-        const { gistId, tasks } = await loadTasks(env, user);
+        const { gistId, tasks, theme, mode, themeUpdatedAt } = await loadTasks(env, user);
         tasks.push(task);
-        await saveTasks(user, gistId, tasks);
+        await saveTasks(user, gistId, tasks, theme, mode, themeUpdatedAt);
         return json({ ok: true, task }, 200, cors);
       }
 
       if (url.pathname === "/week" && request.method === "GET") {
         if (!user) return json({ error: "unauthorized: /week needs a per-person secret" }, 401, cors);
         const tz = url.searchParams.get("tz") || "America/Los_Angeles";
-        const { tasks } = await loadTasks(env, user);
-        return json(weekView(tasks, tz), 200, cors);
+        const { tasks, theme, mode } = await loadTasks(env, user);
+        return json(weekView(tasks, tz, theme, mode), 200, cors);
       }
 
       // default: generic Claude relay (legacy shape, unchanged for the web app)
@@ -229,20 +229,27 @@ async function loadTasks(env, user) {
       description: "Daily Task Manager data", public: false,
       files: { [GIST_FILE]: { content: JSON.stringify({ v: 1, tasks: [] }, null, 2) } },
     });
-    return { gistId: g.id, tasks: [] };
+    return { gistId: g.id, tasks: [], theme: null, mode: null, themeUpdatedAt: 0 };
   }
   const g = await gh(user.token, "https://api.github.com/gists/" + gistId);
   const f = g.files && g.files[GIST_FILE];
   let content = f ? f.content : "";
   if (f && f.truncated && f.raw_url) content = await (await fetch(f.raw_url)).text();
-  let tasks = [];
-  try { tasks = JSON.parse(content).tasks || []; } catch {}
-  return { gistId, tasks };
+  let tasks = [], theme = null, mode = null, themeUpdatedAt = 0;
+  try {
+    const parsed = JSON.parse(content);
+    tasks = parsed.tasks || [];
+    theme = parsed.theme || null; mode = parsed.mode || null; themeUpdatedAt = parsed.themeUpdatedAt || 0;
+  } catch {}
+  return { gistId, tasks, theme, mode, themeUpdatedAt };
 }
 
-async function saveTasks(user, gistId, tasks) {
+// theme/mode/themeUpdatedAt are carried through every write (never explicitly set here —
+// only the web app changes them) so /capture and widget-triggered syncs don't clobber
+// whatever palette the person last picked.
+async function saveTasks(user, gistId, tasks, theme, mode, themeUpdatedAt) {
   await gh(user.token, "https://api.github.com/gists/" + gistId, "PATCH", {
-    files: { [GIST_FILE]: { content: JSON.stringify({ v: 1, tasks }, null, 2) } },
+    files: { [GIST_FILE]: { content: JSON.stringify({ v: 1, tasks, theme: theme || undefined, mode: mode || undefined, themeUpdatedAt: themeUpdatedAt || 0 }, null, 2) } },
   });
 }
 
@@ -258,7 +265,7 @@ function dayLabel(tz, offsetDays) {
   return new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "long" })
     .format(new Date(Date.now() + offsetDays * 86400000));
 }
-function weekView(tasks, tz) {
+function weekView(tasks, tz, theme, mode) {
   const open = tasks.filter(t => !t.deleted && !t.done && (t.bucket || "active") === "active");
   const today = localDateStr(tz, 0);
   const score = t => {
@@ -286,7 +293,10 @@ function weekView(tasks, tz) {
     .sort((a, b) => score(b) - score(a)).slice(0, 5).map(slim);
   const doneToday = tasks.filter(t => !t.deleted && t.done && t.completedAt &&
     localDateStrFromMs(t.completedAt, tz) === today).length;
-  return { generatedAt: new Date().toISOString(), timeZone: tz, overdue, days, unscheduled, doneToday };
+  return {
+    generatedAt: new Date().toISOString(), timeZone: tz, overdue, days, unscheduled, doneToday,
+    theme: theme || "screener", mode: mode || "light",
+  };
 }
 function localDateStrFromMs(ms, tz) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
