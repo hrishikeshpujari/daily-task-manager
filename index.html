@@ -46,6 +46,8 @@
   button,input,select,textarea{font:inherit}button{cursor:pointer}
   @keyframes pulse{50%{opacity:.3}}
   @keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  @keyframes contentIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  #content{animation:contentIn .16s ease}
 
   /* shell + sidebar (source-exact) */
   .shell{display:grid;grid-template-columns:246px 1fr;min-height:100vh}
@@ -161,10 +163,12 @@
   .capdue button{background:none;border:0;color:var(--muted);font-size:13px;padding:2px}
 
   /* check circle (kept from ours — one-tap done is non-negotiable) */
-  .check{flex:none;width:21px;height:21px;border-radius:50%;border:2px solid var(--line2);background:none;cursor:pointer;position:relative;padding:0}
+  .check{flex:none;width:21px;height:21px;border-radius:50%;border:2px solid var(--line2);background:none;cursor:pointer;position:relative;padding:0;transition:background-color .15s ease,border-color .15s ease}
   .check:hover{border-color:var(--green)}
-  .task.done .check,.card.done .check{background:var(--green);border-color:var(--green)}
+  .task.done .check,.card.done .check{background:var(--green);border-color:var(--green);animation:checkPop .22s cubic-bezier(.3,1.6,.5,1)}
   .task.done .check::after,.card.done .check::after{content:"✓";position:absolute;inset:0;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:900}
+  @keyframes checkPop{0%{transform:scale(.7)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+  .task.done .task-name,.card.done .task-name{transition:color .2s ease}
 
   /* brief / wrap-up / banner as source-styled panels */
   .brief{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:15px 17px;margin-bottom:14px}
@@ -226,9 +230,12 @@
   .domchip.on{color:var(--accent);border-color:var(--accent-border);background:var(--accent-pale);font-weight:650}
 
   /* modals (source-exact) + toast */
-  .modal-backdrop{position:fixed;inset:0;background:#14172566;display:none;place-items:center;padding:20px;z-index:30}
-  .modal-backdrop.show,.modal-backdrop.on{display:grid}
-  .modal{width:min(700px,100%);max-height:92vh;overflow:auto;background:var(--paper);border-radius:13px;padding:24px;box-shadow:0 20px 60px #10122b55;border:0}
+  .modal-backdrop{position:fixed;inset:0;background:#14172566;display:grid;place-items:center;padding:20px;z-index:30;
+    opacity:0;visibility:hidden;pointer-events:none;transition:opacity .18s ease,visibility 0s linear .18s}
+  .modal-backdrop.show,.modal-backdrop.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .18s ease,visibility 0s linear 0s}
+  .modal{width:min(700px,100%);max-height:92vh;overflow:auto;background:var(--paper);border-radius:13px;padding:24px;box-shadow:0 20px 60px #10122b55;border:0;
+    transform:scale(.96) translateY(6px);transition:transform .18s cubic-bezier(.2,.9,.3,1.05)}
+  .modal-backdrop.show .modal,.modal-backdrop.on .modal{transform:scale(1) translateY(0)}
   .modal h2{margin:0 0 17px;font-size:19px}
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
   .field{display:grid;gap:5px}
@@ -761,19 +768,29 @@ function render(){
   if(!state.config.token){ banner.innerHTML=`<span>📵 Local only — add a token to sync across devices.</span><button id="setupBtn">Set up</button>`; $("#setupBtn").onclick=openSettings; }
   else banner.innerHTML="";
 
-  const c=$("#content");
-  if(state.view==="history"){ c.innerHTML=historyHTML(); return; }
-  if(state.view==="week"){ c.innerHTML=weekHTML(act); return; }
-  if(state.view==="month"){ c.innerHTML=monthHTML(); return; }
-  if(state.view==="board"){ c.innerHTML=boardHTML(); return; }
-  if(state.view==="all"){ c.innerHTML=allHTML(act,some); restoreSearch(); return; }
-  const items=act.slice(0,5);
-  let body=items.length?ghead("Top priorities",items.length)+items.map((t,i)=>taskHTML(t,i+1)).join(""):"";
-  if(act.length>5) body+=ghead(`+${act.length-5} more in This week`);
-  const dt=doneTodayList();
-  if(dt.length) body+=ghead("Done today",dt.length)+dt.map(t=>taskHTML(t,null)).join("");
-  c.innerHTML=`<div class="panel"><div class="toolbar"><h2>Today's plate</h2></div>${
-    body?listWrap(body):`<div class="empty">Nothing yet. Capture your first task above 👆 ${randomSticker()}</div>`}</div>`;
+  let contentHTML, afterSwap=null;
+  if(state.view==="history") contentHTML=historyHTML();
+  else if(state.view==="week") contentHTML=weekHTML(act);
+  else if(state.view==="month") contentHTML=monthHTML();
+  else if(state.view==="board") contentHTML=boardHTML();
+  else if(state.view==="all"){ contentHTML=allHTML(act,some); afterSwap=restoreSearch; }
+  else{
+    const items=act.slice(0,5);
+    let body=items.length?ghead("Top priorities",items.length)+items.map((t,i)=>taskHTML(t,i+1)).join(""):"";
+    if(act.length>5) body+=ghead(`+${act.length-5} more in This week`);
+    const dt=doneTodayList();
+    if(dt.length) body+=ghead("Done today",dt.length)+dt.map(t=>taskHTML(t,null)).join("");
+    contentHTML=`<div class="panel"><div class="toolbar"><h2>Today's plate</h2></div>${
+      body?listWrap(body):`<div class="empty">Nothing yet. Capture your first task above 👆 ${randomSticker()}</div>`}</div>`;
+  }
+  swapContent($("#content"),contentHTML);
+  if(afterSwap) afterSwap();
+}
+/* Sets innerHTML and restarts the CSS fade-in (a static `animation` rule only plays once on
+   first paint; the none->"" round-trip forces the browser to replay it on every render()). */
+function swapContent(el,html){
+  el.innerHTML=html;
+  el.style.animation="none"; void el.offsetWidth; el.style.animation="";
 }
 
 /* events */
@@ -793,6 +810,7 @@ $("#content").addEventListener("click",e=>{
   const id=li.dataset.id, act=e.target.closest("[data-act]")?.dataset.act;
   if(act==="done"){
     const t=state.tasks.find(x=>x.id===id); const wasDone=t&&t.done;
+    li.classList.toggle("done",!wasDone); // instant checkbox/strikethrough feedback, ahead of the full re-render below
     mutate(id,x=>{ x.done=!x.done; x.completedAt=x.done?Date.now():null; });
     if(t&&!wasDone) showToast(`✓ Done ${randomSticker()}`,"Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; }));
   }

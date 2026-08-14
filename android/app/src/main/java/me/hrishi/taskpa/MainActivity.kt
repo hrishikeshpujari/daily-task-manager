@@ -3,8 +3,8 @@ package me.hrishi.taskpa
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Color
 import android.os.Bundle
+import android.view.View
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -24,7 +24,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         web = WebView(this)
-        web.setBackgroundColor(Color.parseColor("#0e0f13"))
+        applyThemeChrome()
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.webViewClient = object : WebViewClient() {
@@ -44,6 +44,24 @@ class MainActivity : Activity() {
         SyncWorker.schedulePeriodic(this)
     }
 
+    /** Matches the WebView background + status/nav bar to the last-known theme, using
+     *  whatever's already cached in Store — kills the flash of the wrong color before the
+     *  page's own CSS applies, especially noticeable on the darker themes. Re-run after
+     *  mirror() too, in case a sync just landed a theme picked on another device. */
+    private fun applyThemeChrome() {
+        val pal = ThemePalette.paletteFor(Store.theme(this), Store.themeMode(this))
+        val dark = Store.themeMode(this) == "dark"
+        web.setBackgroundColor(pal.canvas)
+        window.statusBarColor = pal.canvas
+        window.navigationBarColor = pal.canvas
+        @Suppress("DEPRECATION")
+        run {
+            val lightBits = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+            val flags = window.decorView.systemUiVisibility
+            window.decorView.systemUiVisibility = if (dark) flags and lightBits.inv() else flags or lightBits
+        }
+    }
+
     private fun mirror() {
         web.evaluateJavascript(
             "(function(){try{return JSON.stringify({cfg:localStorage.getItem('dtm.config')," +
@@ -59,6 +77,7 @@ class MainActivity : Activity() {
                     if (o.isNull("tasks")) null else o.optString("tasks"),
                     if (o.isNull("brief")) null else o.optString("brief")
                 )
+                applyThemeChrome()
                 TaskWidget.updateAll(this)
             } catch (_: Exception) {}
         }
