@@ -51,7 +51,7 @@
 
   /* shell + sidebar (source-exact) */
   .shell{display:grid;grid-template-columns:246px 1fr;min-height:100vh}
-  .sidebar{background:var(--sb-bg);color:var(--sb-ink);padding:22px 14px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
+  .sidebar{background:var(--sb-bg);color:var(--sb-ink);padding:calc(22px + env(safe-area-inset-top)) 14px 22px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column}
   .brand{display:flex;align-items:center;gap:10px;padding:0 9px 27px;color:#fff;font-weight:750;letter-spacing:-.3px}
   .mark{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent2),var(--accent));font-size:16px}
   .workspace{font-size:11px;text-transform:uppercase;letter-spacing:.11em;color:var(--sb-mut);padding:14px 9px 9px}
@@ -70,7 +70,7 @@
   #paPill[data-s="error"]{color:#ef8b8b}
 
   /* main column (source-exact) */
-  .main{max-width:1500px;width:100%;padding:32px 40px 52px;margin:auto;min-width:0}
+  .main{max-width:1500px;width:100%;padding:calc(32px + env(safe-area-inset-top)) 40px 52px;margin:auto;min-width:0}
   .top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
   .eyebrow{color:var(--accent);font-size:12px;text-transform:uppercase;font-weight:700;letter-spacing:.1em;margin-bottom:5px}
   .top h1{font-size:28px;letter-spacing:-.8px;margin:0}
@@ -275,7 +275,7 @@
     .stat{min-height:0;padding:12px 13px}.stat strong{font-size:22px}
     .stat-sticker{top:3px;right:4px;font-size:14px;transform:rotate(8deg)}
     .top{display:block}.aside{grid-template-columns:1fr}
-    .main{padding:18px 12px 110px}
+    .main{padding:calc(18px + env(safe-area-inset-top)) 12px 110px}
     #bnav{display:flex}
     .tasks{min-width:0}
     .board{grid-template-columns:repeat(4,minmax(200px,1fr))}
@@ -1091,6 +1091,7 @@ function applyThemeVars(){
   document.body.style.backgroundImage=pat?pat.image:"";
   document.body.style.backgroundSize=pat?pat.size:"";
   document.body.dataset.theme=id;
+  const tc=document.querySelector('meta[name="theme-color"]'); if(tc) tc.setAttribute("content",m.canvas);
   assignStickers(); renderStickerSlots();
   render();
 }

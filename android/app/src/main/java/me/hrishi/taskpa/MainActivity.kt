@@ -51,6 +51,9 @@ class MainActivity : Activity() {
             override fun onPageFinished(view: WebView, url: String) = mirror()
         }
         setContentView(web)
+        // A listener registered before the view is attached isn't guaranteed to fire on its
+        // own on every OS version - force one explicit dispatch now that it's really attached.
+        ViewCompat.requestApplyInsets(web)
         web.loadUrl(APP_URL)
         SyncWorker.schedulePeriodic(this)
     }
