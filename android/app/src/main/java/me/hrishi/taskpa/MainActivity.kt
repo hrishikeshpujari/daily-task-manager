@@ -33,6 +33,12 @@ class MainActivity : Activity() {
         // targetSdk 36 means edge-to-edge is enforced by the OS (not optional past API 35) -
         // content draws behind the status/nav bars unless we explicitly pad for them.
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        // Debug builds only (checked via the debuggable flag, not BuildConfig - avoids needing
+        // buildFeatures.buildConfig=true) - lets chrome://inspect / CDP attach to this WebView
+        // for real on-device debugging instead of guessing at tap coordinates blind.
+        if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true)
+        }
         web = WebView(this)
         applyThemeChrome()
         ViewCompat.setOnApplyWindowInsetsListener(web) { view, insets ->
