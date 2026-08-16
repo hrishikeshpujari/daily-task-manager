@@ -10,8 +10,8 @@ android {
         applicationId = "me.hrishi.taskpa"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.13"
+        versionCode = 15
+        versionName = "1.14"
     }
 
     buildTypes {
@@ -32,4 +32,5 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.core.splashscreen)
 }

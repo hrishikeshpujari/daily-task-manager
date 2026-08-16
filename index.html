@@ -128,6 +128,9 @@
   .card{background:var(--paper);border:1px solid var(--cardline);border-radius:8px;padding:11px;margin-bottom:8px;box-shadow:0 1px 1px #16203a05;display:block}
   .card .task-name{font-size:13px;min-width:0}
   .card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px}
+  .card-actions{display:flex;gap:6px;align-items:center}
+  .move-trigger{display:none;border:1px solid var(--line);background:var(--paper);color:var(--muted);border-radius:7px;padding:4px 8px;font-size:12px}
+  @media(max-width:650px){.move-trigger{display:inline-flex}}
   .card.done .task-name{text-decoration:line-through;color:var(--muted)}
   .board .card{cursor:grab}
   .board .card:active{cursor:grabbing}
@@ -236,6 +239,13 @@
   .modal{width:min(700px,100%);max-height:92vh;overflow:auto;background:var(--paper);border-radius:13px;padding:24px;box-shadow:0 20px 60px #10122b55;border:0;
     transform:scale(.96) translateY(6px);transition:transform .18s cubic-bezier(.2,.9,.3,1.05)}
   .modal-backdrop.show .modal,.modal-backdrop.on .modal{transform:scale(1) translateY(0)}
+  .sheet-backdrop{align-items:flex-end;padding:0}
+  .sheet{width:100%;max-width:520px;margin:0 auto;background:var(--paper);border-radius:16px 16px 0 0;padding:8px 8px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px #10122b33;transform:translateY(24px);transition:transform .18s cubic-bezier(.2,.9,.3,1.05)}
+  .sheet-backdrop.show .sheet,.sheet-backdrop.on .sheet{transform:translateY(0)}
+  .sheet .sheet-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:12px 10px 8px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sheet button{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:14px 10px;font-size:15px;color:var(--ink)}
+  .sheet button:first-of-type{border-top:0}
+  .sheet button.cancel{color:var(--muted);margin-top:6px;border-top:1px solid var(--line)}
   .modal h2{margin:0 0 17px;font-size:19px}
   .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
   .field{display:grid;gap:5px}
@@ -421,6 +431,9 @@
     <p class="help">Day names like "Thursday" become the upcoming Thursday. Checked-off items are skipped. Without the PA configured, each line simply becomes a task.</p>
   </div>
 </div>
+
+<!-- Board: mobile move sheet (desktop keeps drag-and-drop; touch DnD support is inconsistent) -->
+<div class="modal-backdrop sheet-backdrop" id="moveSheet"><div class="sheet" id="moveSheetBody"></div></div>
 <script>
 "use strict";
 const GIST_FILE="daily-tasks.json", K_TASKS="dtm.tasks", K_CFG="dtm.config", K_BRIEF="dtm.brief", DAY=86400000;
@@ -600,6 +613,7 @@ function renderAside(){
 function boardMove(id,colKey){
   const t=state.tasks.find(x=>x.id===id); if(!t) return;
   const today=localKey();
+  window.Android?.haptic?.("tap");
   if(colKey==="done"){
     if(!t.done){ mutate(id,x=>{ x.done=true; x.completedAt=Date.now(); }); showToast(`✓ Done ${randomSticker()}`,"Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; })); }
     return;
@@ -612,6 +626,34 @@ function boardMove(id,colKey){
   });
   queuePrioritize();
 }
+
+/* Board: mobile move sheet — a tap-to-move alternative to HTML5 drag-and-drop, which has
+   inconsistent-to-nonexistent touch support. Desktop keeps the existing drag/drop untouched. */
+let moveSheetId=null;
+const MOVE_COLS=[["todo","To do"],["today","Today"],["someday","Someday"],["done","Done"]];
+function currentCol(t){
+  if(t.done) return "done";
+  if(t.bucket==="someday") return "someday";
+  const today=localKey();
+  return (t.due===today||t.pinnedFor===today)?"today":"todo";
+}
+function openMoveSheet(id){
+  const t=state.tasks.find(x=>x.id===id); if(!t) return;
+  moveSheetId=id;
+  const cur=currentCol(t);
+  $("#moveSheetBody").innerHTML=
+    `<div class="sheet-title">Move "${esc(t.text)}"</div>`+
+    MOVE_COLS.map(([key,label])=>`<button type="button" data-movecol="${key}">${esc(label)}${key===cur?" · here":""}</button>`).join("")+
+    `<button type="button" class="cancel" id="moveCancel">Cancel</button>`;
+  pushModalHistory();
+  $("#moveSheet").classList.add("on");
+}
+$("#moveSheet").addEventListener("click",e=>{
+  if(e.target===e.currentTarget){ dismissModal(); return; }
+  const b=e.target.closest("[data-movecol]");
+  if(b){ boardMove(moveSheetId,b.dataset.movecol); dismissModal(); return; }
+  if(e.target.id==="moveCancel") dismissModal();
+});
 function boardCardHTML(t){
   const dl=dueLabel(t);
   const meta=[t.domain?esc(t.domain):"",(dl&&!t.done)?dl.txt:"",fmtTime(t.time)?"🕐 "+fmtTime(t.time):""].filter(Boolean).join(" · ");
@@ -619,7 +661,7 @@ function boardCardHTML(t){
     <div class="cardrow"><button class="check" data-act="done" aria-label="Done"></button>
     <div class="task-name">${(!t.done&&t.pinnedFor===localKey())?"🎯 ":""}${esc(t.text)}${t.important&&!t.done?" ★":""}</div></div>
     ${meta?`<div class="meta" style="margin-top:6px">${meta}</div>`:""}
-    <div class="card-foot">${t.done?'<span class="badge normal">Done</span>':TIER_BADGE[tier(t)]}<button class="open" data-open="${t.id}">Open</button></div>
+    <div class="card-foot">${t.done?'<span class="badge normal">Done</span>':TIER_BADGE[tier(t)]}<span class="card-actions"><button type="button" class="move-trigger" data-move="${t.id}">⇄ Move</button><button class="open" data-open="${t.id}">Open</button></span></div>
   </article>`;
 }
 function boardHTML(){
@@ -806,11 +848,13 @@ $("#content").addEventListener("click",e=>{
   const md=e.target.closest("[data-mday]"); if(md){ state.selDay=state.selDay===md.dataset.mday?null:md.dataset.mday; render(); return; }
   const af=e.target.closest("[data-addfor]"); if(af){ setCaptureDue(af.dataset.addfor); return; }
   const dc=e.target.closest("[data-dom]"); if(dc){ state.domFilter=dc.dataset.dom; render(); return; }
+  const mv=e.target.closest("[data-move]"); if(mv){ openMoveSheet(mv.dataset.move); return; }
   const li=e.target.closest(".task"); if(!li) return;
   const id=li.dataset.id, act=e.target.closest("[data-act]")?.dataset.act;
   if(act==="done"){
     const t=state.tasks.find(x=>x.id===id); const wasDone=t&&t.done;
     li.classList.toggle("done",!wasDone); // instant checkbox/strikethrough feedback, ahead of the full re-render below
+    if(!wasDone) window.Android?.haptic?.("confirm");
     mutate(id,x=>{ x.done=!x.done; x.completedAt=x.done?Date.now():null; });
     if(t&&!wasDone) showToast(`✓ Done ${randomSticker()}`,"Undo",()=>mutate(id,x=>{ x.done=false; x.completedAt=null; }));
   }
@@ -881,6 +925,18 @@ document.addEventListener("click",e=>{
   const dn=e.target.closest("[data-domnav]"); if(dn){ state.domFilter=dn.dataset.domnav; state.stFilter=""; setView("all"); }
 });
 
+/* modal history — makes Android's hardware/gesture back button close the open modal
+   instead of exiting the app. MainActivity's web.canGoBack()/web.goBack() already do the
+   right thing once the page itself has a history entry to go back to; no native change
+   needed. Every modal open calls pushModalHistory(); every UI-driven close (X, backdrop,
+   save, delete, cancel) calls dismissModal() so the pushed entry gets consumed either way —
+   otherwise a UI-closed modal would leave a stale entry needing an extra back press. */
+let modalOpen=false;
+function pushModalHistory(){ if(!modalOpen){ modalOpen=true; history.pushState({modal:true},""); } }
+function closeModalsDom(){ document.querySelectorAll(".modal-backdrop.show,.modal-backdrop.on").forEach(m=>{ m.classList.remove("show"); m.classList.remove("on"); }); }
+function dismissModal(){ closeModalsDom(); if(modalOpen){ modalOpen=false; history.back(); } }
+addEventListener("popstate",()=>{ modalOpen=false; closeModalsDom(); });
+
 /* task editor modal (the tracker's Open → details pattern) */
 let editingId=null, mImportant=false, mPinned=false;
 function refreshModalChips(){
@@ -899,17 +955,18 @@ function openTaskModal(id){
   refreshModalChips();
   const why=[t.why?"✦ "+t.why:"",(typeof t.aiPriority==="number")?"priority "+t.aiPriority:"",fmtMins(t.effortMins)||""].filter(Boolean).join(" · ");
   $("#tWhyWrap").hidden=!why; $("#tWhy").textContent=why;
+  pushModalHistory();
   $("#taskModal").classList.add("show");
 }
 $("#tImportant").onclick=()=>{ mImportant=!mImportant; refreshModalChips(); };
 $("#tPin").onclick=()=>{ mPinned=!mPinned; refreshModalChips(); };
 document.querySelectorAll("[data-mdue]").forEach(b=>b.onclick=()=>{ $("#tDue").value=b.dataset.mdue==="t"?localKey():(b.dataset.mdue==="m"?tomorrowKey():""); });
-$("#tClose").onclick=()=>$("#taskModal").classList.remove("show");
-$("#taskModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) $("#taskModal").classList.remove("show"); });
+$("#tClose").onclick=dismissModal;
+$("#taskModal").addEventListener("click",e=>{ if(e.target===e.currentTarget) dismissModal(); });
 $("#tDelete").onclick=()=>{
   if(!editingId) return; const id=editingId;
   mutate(id,t=>t.deleted=true);
-  $("#taskModal").classList.remove("show");
+  dismissModal();
   showToast("Deleted","Undo",()=>mutate(id,t=>t.deleted=false));
 };
 $("#taskForm").addEventListener("submit",e=>{
@@ -928,7 +985,7 @@ $("#taskForm").addEventListener("submit",e=>{
   });
   const nowPinned=state.tasks.find(x=>x.id===id).pinnedFor===localKey();
   if(wantPin!==nowPinned) pinTask(id,localKey());
-  $("#taskModal").classList.remove("show");
+  dismissModal();
   queuePrioritize();
 });
 
@@ -955,18 +1012,18 @@ function weeklyText(done,active){
   const d=`Completed this week (${done.length}):\n`+(done.map(t=>"• "+t.text).join("\n")||"• (nothing logged)");
   const a=`\n\nIn progress / next:\n`+(active.map(t=>"• "+t.text).join("\n")||"• (nothing active)");
   return d+a; }
-async function openWeek(){ const ta=$("#weekText"); $("#weekModal").classList.add("on");
+async function openWeek(){ const ta=$("#weekText"); pushModalHistory(); $("#weekModal").classList.add("on");
   if(paReady()){ ta.value="✨ Drafting your weekly summary…"; ta.value=await generateWeekly(); }
   else ta.value=weeklyText(); }
-$("#closeWeek").onclick=()=>$("#weekModal").classList.remove("on");
+$("#closeWeek").onclick=dismissModal;
 $("#copyWeek").onclick=async()=>{ const ta=$("#weekText"); try{ await navigator.clipboard.writeText(ta.value); }catch(e){ ta.select(); document.execCommand("copy"); } $("#copyWeek").textContent="Copied ✓"; setTimeout(()=>$("#copyWeek").textContent="Copy",1500); };
 
 /* settings */
-function openSettings(){ const c=state.config; $("#tokenInput").value=c.token||""; $("#gistInput").value=c.gistId||""; $("#proxyInput").value=c.proxyUrl||""; $("#secretInput").value=c.appSecret||""; updateSyncInfo(); renderThemeSwatches(); $("#settingsModal").classList.add("on"); }
+function openSettings(){ const c=state.config; $("#tokenInput").value=c.token||""; $("#gistInput").value=c.gistId||""; $("#proxyInput").value=c.proxyUrl||""; $("#secretInput").value=c.appSecret||""; updateSyncInfo(); renderThemeSwatches(); pushModalHistory(); $("#settingsModal").classList.add("on"); }
 $("#gearBtn").onclick=openSettings; $("#syncPill").onclick=openSettings; $("#paPill").onclick=openSettings;
-$("#closeSettings").onclick=()=>$("#settingsModal").classList.remove("on");
-$("#saveSettings").onclick=()=>{ const c=state.config; c.token=$("#tokenInput").value.trim(); c.gistId=$("#gistInput").value.trim(); c.proxyUrl=$("#proxyInput").value.trim(); c.appSecret=$("#secretInput").value.trim(); saveConfig(); $("#settingsModal").classList.remove("on"); render(); syncNow(); if(c.proxyUrl&&c.appSecret){ runPrioritize(); generateBrief(false); } };
-$("#disconnect").onclick=()=>{ state.config={token:"",gistId:"",proxyUrl:"",appSecret:"",theme:state.config.theme,mode:state.config.mode,themeUpdatedAt:state.config.themeUpdatedAt}; saveConfig(); state.brief=null; localStorage.removeItem(K_BRIEF); setSync("local"); $("#settingsModal").classList.remove("on"); render(); };
+$("#closeSettings").onclick=dismissModal;
+$("#saveSettings").onclick=()=>{ const c=state.config; c.token=$("#tokenInput").value.trim(); c.gistId=$("#gistInput").value.trim(); c.proxyUrl=$("#proxyInput").value.trim(); c.appSecret=$("#secretInput").value.trim(); saveConfig(); dismissModal(); render(); syncNow(); if(c.proxyUrl&&c.appSecret){ runPrioritize(); generateBrief(false); } };
+$("#disconnect").onclick=()=>{ state.config={token:"",gistId:"",proxyUrl:"",appSecret:"",theme:state.config.theme,mode:state.config.mode,themeUpdatedAt:state.config.themeUpdatedAt}; saveConfig(); state.brief=null; localStorage.removeItem(K_BRIEF); setSync("local"); dismissModal(); render(); };
 
 /* theme system — 13 palettes x 2 modes, derived at runtime from a few seed colors so
    every theme stays internally consistent (same contrast/lightness relationships) without
@@ -1142,12 +1199,12 @@ $("#themeDark").onclick=()=>setMode("dark");
 $("#themeLight").onclick=()=>setMode("light");
 
 /* import */
-$("#importBtn").onclick=()=>{ $("#settingsModal").classList.remove("on"); $("#importModal").classList.add("on"); $("#importText").focus(); };
-$("#closeImport").onclick=()=>$("#importModal").classList.remove("on");
+$("#importBtn").onclick=()=>{ $("#settingsModal").classList.remove("on"); pushModalHistory(); $("#importModal").classList.add("on"); $("#importText").focus(); };
+$("#closeImport").onclick=dismissModal;
 $("#runImport").onclick=importNow;
 async function importNow(){
   const raw=$("#importText").value.trim();
-  if(!raw){ $("#importModal").classList.remove("on"); return; }
+  if(!raw){ dismissModal(); return; }
   $("#runImport").textContent="Importing…";
   let items=null;
   if(paReady()&&navigator.onLine){
@@ -1165,7 +1222,7 @@ async function importNow(){
     state.tasks.push(t); n++;
   }
   saveTasks(); render(); queueSync(); queuePrioritize();
-  $("#importModal").classList.remove("on"); $("#importText").value=""; $("#runImport").textContent="Import";
+  dismissModal(); $("#importText").value=""; $("#runImport").textContent="Import";
   showToast("⇪ Imported "+n+" task"+(n===1?"":"s"),null,null);
 }
 function updateSyncInfo(){ $("#syncInfo").textContent=state.lastSync?"Last synced "+new Date(state.lastSync).toLocaleString():"Not synced yet."; }

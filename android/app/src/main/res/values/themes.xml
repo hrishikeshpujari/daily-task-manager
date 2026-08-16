@@ -11,4 +11,14 @@
         <item name="android:windowMinWidthMinor">94%</item>
         <item name="android:backgroundDimAmount">0.6</item>
     </style>
+
+    <!-- Shown for the brief window before installSplashScreen()/the WebView paint takes
+         over in MainActivity - replaces what was previously a blank flash on cold launch.
+         Background can't be theme-aware (nothing has run yet at this point); @color/bg is
+         the Original theme's canvas, a reasonable universal default. -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/AppTheme</item>
+    </style>
 </resources>

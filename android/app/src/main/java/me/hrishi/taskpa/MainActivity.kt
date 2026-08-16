@@ -4,10 +4,13 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.view.HapticFeedbackConstants
 import android.view.View
+import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -25,6 +28,7 @@ class MainActivity : Activity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen() // must run before super.onCreate() per the compat library's contract
         super.onCreate(savedInstanceState)
         // targetSdk 36 means edge-to-edge is enforced by the OS (not optional past API 35) -
         // content draws behind the status/nav bars unless we explicitly pad for them.
@@ -36,6 +40,11 @@ class MainActivity : Activity() {
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
         }
+        // Safe here specifically because this WebView only ever loads APP_URL (a fixed,
+        // trusted, same-origin page) - shouldOverrideUrlLoading below sends anything else to
+        // an external browser instead of loading it here, so untrusted content never runs
+        // with this interface exposed to it.
+        web.addJavascriptInterface(HapticBridge(web), "Android")
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
         web.webViewClient = object : WebViewClient() {
@@ -110,5 +119,18 @@ class MainActivity : Activity() {
     companion object {
         const val APP_HOST = "hrishikeshpujari.github.io"
         const val APP_URL = "https://hrishikeshpujari.github.io/daily-task-manager/"
+    }
+}
+
+/** window.Android.haptic() from the web layer — task-complete and board-move calls this so
+ *  the phone actually vibrates on the app's most common interactions. performHapticFeedback
+ *  (not raw Vibrator) needs no permission and respects the user's system haptics setting.
+ *  JavascriptInterface methods run on a background thread, so the actual call is posted back
+ *  to the view's UI thread. */
+private class HapticBridge(private val view: View) {
+    @JavascriptInterface
+    fun haptic(kind: String?) {
+        val constant = if (kind == "confirm") HapticFeedbackConstants.CONFIRM else HapticFeedbackConstants.VIRTUAL_KEY
+        view.post { view.performHapticFeedback(constant) }
     }
 }
