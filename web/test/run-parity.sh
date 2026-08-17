@@ -6,5 +6,7 @@ cd "$(dirname "$0")/.."
 mkdir -p test/.parity
 ./node_modules/.bin/esbuild src/scoring.ts --format=esm --outfile=test/.parity/scoring.mjs >/dev/null
 ./node_modules/.bin/esbuild src/merge.ts --bundle --format=esm --outfile=test/.parity/merge.mjs >/dev/null
+./node_modules/.bin/esbuild src/sync.ts --bundle --format=esm --outfile=test/.parity/sync.mjs --log-level=error >/dev/null
 echo "== scoring ==";  node test/scoring.parity.mjs
 echo "== merge ==";    node test/merge.parity.mjs
+echo "== sync ==";     node test/sync.harness.mjs
