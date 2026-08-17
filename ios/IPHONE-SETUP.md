@@ -9,9 +9,11 @@ Your tasks live in *your* GitHub account — separate from anyone else's.
 2. Create a token: github.com/settings/tokens → **Generate new token (classic)** →
    tick **only `gist`** → Generate → copy it.
 3. Open the app in Safari: `https://hrishikeshpujari.github.io/daily-task-manager/`
-   → tap **⚙** → paste your token under sync → under **Claude PA**, paste the
-   **Worker URL** + **your personal secret** → Save.
-4. Optional but cute: **⚙ → Theme → 🌸 Light & playful.**
+   → tap **⚙** (top-right of the header) → paste your token under sync → under
+   **Claude PA**, paste the **Worker URL** + **your personal secret** → Save.
+4. Make it yours: **⚙ → Theme** → pick any of the 13 (🎀 Girly, 🌸 Spring,
+   🎃 Halloween, 💻 Tech, 💼 Professional, …), then **Mode → ☀️ Day / 🌙 Night.**
+   Each theme has its own colors + emoji stickers, and it syncs to your widgets.
 5. Migrate: copy your Apple Notes lists → **⚙ → ⇪ Import** → paste → Import.
    Day names ("Thursday") land on the right dates automatically.
 
