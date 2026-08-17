@@ -30,6 +30,7 @@ import org.json.JSONTokener
  */
 class MainActivity : Activity() {
     private lateinit var web: WebView
+    private var lastInsets: androidx.core.graphics.Insets? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,9 +47,16 @@ class MainActivity : Activity() {
         }
         web = WebView(this)
         applyThemeChrome()
-        ViewCompat.setOnApplyWindowInsetsListener(web) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+        // Status-bar overlap: targetSdk 36 forces edge-to-edge, and Android WebView does NOT
+        // reliably support CSS env(safe-area-inset-*) (unlike iOS Safari, where it works). So
+        // rather than native view padding (which proved flaky on-device) OR CSS env() (which
+        // resolves to 0 in this WebView), measure the real system-bar insets and inject them
+        // as CSS custom properties the stylesheet consumes deterministically. Re-fires live
+        // when the bar height changes (ongoing-call chip, rotation) and is re-injected after
+        // each page load below. No native padding here on purpose - CSS owns all the insets.
+        ViewCompat.setOnApplyWindowInsetsListener(web) { _, insets ->
+            lastInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            injectInsets()
             insets
         }
         // Safe here specifically because this WebView only ever loads APP_URL (a fixed,
@@ -68,7 +76,10 @@ class MainActivity : Activity() {
                 }
             }
 
-            override fun onPageFinished(view: WebView, url: String) = mirror()
+            override fun onPageFinished(view: WebView, url: String) {
+                injectInsets() // re-apply, in case insets arrived before the page was ready to receive them
+                mirror()
+            }
         }
         setContentView(web)
         // A listener registered before the view is attached isn't guaranteed to fire on its
@@ -83,6 +94,22 @@ class MainActivity : Activity() {
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
+    }
+
+    /** Push the real system-bar insets into the page as CSS vars (--sb-top/-bottom/-left/-right),
+     *  converted from physical px to CSS px (÷ density). The stylesheet reads them via
+     *  var(--sb-top, env(safe-area-inset-top)) — so Android uses these exact measured values,
+     *  while a real iOS Safari PWA (her iPhone) still falls back to env(), which works there. */
+    private fun injectInsets() {
+        val b = lastInsets ?: return
+        val d = resources.displayMetrics.density
+        val js = "(function(s){" +
+            "s.setProperty('--sb-top','${b.top / d}px');" +
+            "s.setProperty('--sb-bottom','${b.bottom / d}px');" +
+            "s.setProperty('--sb-left','${b.left / d}px');" +
+            "s.setProperty('--sb-right','${b.right / d}px');" +
+            "})(document.documentElement.style)"
+        web.evaluateJavascript(js, null)
     }
 
     /** Matches the WebView background + status/nav bar to the last-known theme, using

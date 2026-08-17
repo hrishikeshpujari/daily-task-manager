@@ -1,7 +1,7 @@
 /* Daily Task Manager service worker.
    Navigations are NETWORK-FIRST (new versions land on a normal reopen; cache only as
    offline fallback). Static assets are cache-first with a background refresh. */
-const CACHE = "dtm-v22";
+const CACHE = "dtm-v23";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", e => {
