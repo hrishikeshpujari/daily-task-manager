@@ -68,6 +68,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             Net.pushTasks(token, gistId, merged, theme, mode, themeAt)
             Store.saveTasks(ctx, merged)
             TaskWidget.updateAll(ctx)
+            try { Notifications.checkAndNotify(ctx, merged) } catch (_: Exception) { /* reminders are best-effort */ }
             Result.success()
         } catch (e: Exception) {
             if (runAttemptCount < 3) Result.retry()

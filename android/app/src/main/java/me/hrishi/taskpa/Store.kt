@@ -36,6 +36,18 @@ object Store {
     fun localKey(ts: Long = System.currentTimeMillis()): String =
         SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(ts))
 
+    // Due-reminder spam prevention: keys are "taskId:reason:due", so a task notifies once
+    // per (reason, due-date) - rescheduling naturally produces a fresh key instead of needing
+    // explicit invalidation. Bounded: a personal task list won't realistically exceed this,
+    // but if it ever does, resetting just risks an occasional duplicate, not a real problem.
+    fun notifiedKeys(ctx: Context): Set<String> = prefs(ctx).getStringSet("notified", emptySet()) ?: emptySet()
+    fun addNotifiedKeys(ctx: Context, keys: Collection<String>) {
+        if (keys.isEmpty()) return
+        val merged = HashSet(notifiedKeys(ctx))
+        merged.addAll(keys)
+        prefs(ctx).edit().putStringSet("notified", if (merged.size > 500) HashSet(keys) else merged).apply()
+    }
+
     // Per-widget-instance mode ("today" | "week" | "someday" | "mon".."sun") — set by
     // WidgetConfigActivity when a widget is placed, cleaned up in onDeleted.
     fun widgetMode(ctx: Context, widgetId: Int): String =

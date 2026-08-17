@@ -1,8 +1,11 @@
 package me.hrishi.taskpa
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.HapticFeedbackConstants
 import android.view.View
@@ -10,6 +13,8 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -71,6 +76,13 @@ class MainActivity : Activity() {
         ViewCompat.requestApplyInsets(web)
         web.loadUrl(APP_URL)
         SyncWorker.schedulePeriodic(this)
+        // Due-task reminders (Notifications.kt) are best-effort and silently no-op without this -
+        // ask once on launch; a decline just means SyncWorker's areNotificationsEnabled() check
+        // keeps skipping them, nothing else depends on the answer.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
+        }
     }
 
     /** Matches the WebView background + status/nav bar to the last-known theme, using
