@@ -74,7 +74,31 @@ export function BottomNav() {
   );
 }
 
+const HeaderActions = () => (
+  <div style="display:flex;gap:8px;align-items:center">
+    {/* the sidebar gear is hidden on mobile — this one keeps Settings reachable there */}
+    <button class="top-gear" aria-label="Preferences" onClick={openSettings}>⚙</button>
+    <button class="primary" onClick={focusCapture}>+ New task</button>
+  </div>
+);
+
 export function TopHeader() {
+  // Today gets a personal date + greeting (minimalist redesign); other views keep the labelled header.
+  if (view.value === "today") {
+    const now = new Date();
+    const hr = now.getHours();
+    const greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
+    const dateStr = now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+    return (
+      <header class="top">
+        <div>
+          <div class="eyebrow">{dateStr}</div>
+          <h1>{greet} <span class="h1-sticker">{stickerSlots.value.stat1}</span></h1>
+        </div>
+        <HeaderActions />
+      </header>
+    );
+  }
   const [title, sub] = VIEW_META[view.value];
   return (
     <header class="top">
@@ -83,11 +107,7 @@ export function TopHeader() {
         <h1>{title}</h1>
         <p class="sub">{sub}</p>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        {/* the sidebar gear is hidden on mobile — this one keeps Settings reachable there */}
-        <button class="top-gear" aria-label="Preferences" onClick={openSettings}>⚙</button>
-        <button class="primary" onClick={focusCapture}>+ New task</button>
-      </div>
+      <HeaderActions />
     </header>
   );
 }
@@ -136,8 +156,70 @@ export function StatCards() {
   );
 }
 
+// Today-only slim summary (replaces the 4 stat cards on Today). A progress ring over "today's
+// load" + three compact count chips. The chips keep the mobile nav targets the stat cards owned
+// (Overdue→Week, High→All) and the ring→Done, so All/Done stay reachable without a bottom-nav slot.
+export function TodaySummary() {
+  const act = activeOpen(tasks.value);
+  const today = localKey();
+  const dn = doneTodayList(tasks.value).length;
+  const dueToday = act.filter((t) => t.due === today).length;
+  const overdue = act.filter((t) => t.due && t.due < today).length;
+  const high = act.filter((t) => tier(t) === "high").length;
+  // "Today's load" = still-open tasks due today-or-earlier or pinned for today, + what's already
+  // done today. Empty load ⇒ a full ring + "All clear" rather than a demoralising 0%.
+  const openToday = act.filter((t) => (t.due && t.due <= today) || t.pinnedFor === today).length;
+  const total = dn + openToday;
+  const pct = total ? Math.round((dn / total) * 100) : 100;
+  const C = 2 * Math.PI * 16;
+  return (
+    <section class="today-summary">
+      <button class="ts-progress" onClick={() => setView("history")} title="See what you've completed">
+        <span class="ts-ring">
+          <svg viewBox="0 0 40 40" width="46" height="46" aria-hidden="true">
+            <circle class="ts-track" cx="20" cy="20" r="16" />
+            <circle class="ts-val" cx="20" cy="20" r="16" stroke-dasharray={`${(pct / 100) * C} ${C}`} transform="rotate(-90 20 20)" />
+          </svg>
+          <span class="ts-pct">{total ? pct + "%" : "✓"}</span>
+        </span>
+        <span class="ts-lead">
+          <strong>{total ? `${dn} of ${total} done` : "All clear"}</strong>
+          <span>{!total ? "nothing pressing today ✨" : pct >= 100 ? "today's plate is clear 🎉" : "done so far today"}</span>
+        </span>
+      </button>
+      <div class="ts-stats">
+        <button class={`ts-stat${dueToday ? " on" : ""}`} onClick={() => setView("today")}><b>{dueToday}</b><span>Due today</span></button>
+        <button class={`ts-stat${overdue ? " warn" : ""}`} onClick={() => setView("week")}><b>{overdue}</b><span>Overdue</span></button>
+        <button class="ts-stat" onClick={() => setView("all")}><b>{high}</b><span>High</span></button>
+      </div>
+    </section>
+  );
+}
+
 function FocusItem({ id, subtitle, text }: { id: string; subtitle: string; text: string }) {
   return <div class="focus-item" onClick={() => jumpToTask(id)}><span>{subtitle}</span><b>{text}</b></div>;
+}
+
+// Today-only light rail (desktop only; hidden ≤1100px via CSS). One quiet "Coming up" panel of the
+// next few due dates — complements the Today list (which owns today) with a forward look.
+export function TodayRail() {
+  const act = activeOpen(tasks.value);
+  const today = localKey();
+  const sk = stickerSlots.value;
+  const upcoming = act.filter((t) => t.due && t.due > today).sort((a, b) => a.due!.localeCompare(b.due!)).slice(0, 6);
+  const fmtDay = (d: string) => new Date(d + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+  return (
+    <aside class="today-rail">
+      <div class="panel">
+        <h3>Coming up<span class="panel-sticker">{sk.panelDue}</span></h3>
+        <div class="focus">
+          {upcoming.length
+            ? upcoming.map((t) => <FocusItem key={t.id} id={t.id} subtitle={fmtDay(t.due!) + (t.domain ? " · " + t.domain : "")} text={t.text} />)
+            : <div class="meta">Nothing scheduled ahead — you're all caught up {sk.panelDue}</div>}
+        </div>
+      </div>
+    </aside>
+  );
 }
 
 export function Aside() {

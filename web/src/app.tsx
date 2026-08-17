@@ -4,7 +4,7 @@ import { syncNow } from "./sync";
 import { runPrioritize, afterCapture, generateBrief, setPA } from "./pa";
 import { applyThemeVars } from "./theme";
 import { openModal, openSearch } from "./ui";
-import { Sidebar, BottomNav, TopHeader, CaptureBar, StatCards, Aside, Banner, Brief, WrapUp, Toast } from "./components/shell";
+import { Sidebar, BottomNav, TopHeader, CaptureBar, StatCards, Aside, TodaySummary, TodayRail, Banner, Brief, WrapUp, Toast } from "./components/shell";
 import { TodayView, WeekView, BoardView, MonthView, AllView, HistoryView } from "./components/views";
 import { ModalHost } from "./components/modals";
 
@@ -52,6 +52,7 @@ export function App() {
     };
   }, []);
 
+  const isToday = view.value === "today";
   return (
     <>
       <div class="shell">
@@ -59,15 +60,16 @@ export function App() {
         <main class="main">
           <TopHeader />
           <CaptureBar />
-          <StatCards />
+          {/* Today gets the slim summary strip; other views keep the 4 stat cards (redesign scoped to Today) */}
+          {isToday ? <TodaySummary /> : <StatCards />}
           <section class="layout">
             <div style="min-width:0">
-              {view.value === "today" ? <><WrapUp /><Brief /></> : null}
+              {isToday ? <><WrapUp /><Brief /></> : null}
               <Banner />
               {/* keyed by view so it re-mounts and replays the contentIn fade on view change */}
               <div id="content" key={view.value}><Content /></div>
             </div>
-            <Aside />
+            {isToday ? <TodayRail /> : <Aside />}
           </section>
         </main>
       </div>
