@@ -1,0 +1,4 @@
+/* Phase-1 minimal reset. The full token-driven stylesheet (13-theme derive, --sb-* safe-area
+   with env() fallback, all component styles) is ported in Phase 4. */
+* { box-sizing: border-box; }
+body { margin: 0; background: #f9f7f2; }
