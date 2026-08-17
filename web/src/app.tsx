@@ -1,20 +1,79 @@
-import { signal } from "@preact/signals";
+import { useEffect } from "preact/hooks";
+import { view, paReady, registerHooks, queuePrioritize } from "./store";
+import { syncNow } from "./sync";
+import { runPrioritize, afterCapture, generateBrief, setPA } from "./pa";
+import { applyThemeVars } from "./theme";
+import { openModal, openSearch } from "./ui";
+import { Sidebar, BottomNav, TopHeader, CaptureBar, StatCards, Aside, Banner, Brief, WrapUp, Toast } from "./components/shell";
+import { TodayView, WeekView, BoardView, MonthView, AllView, HistoryView } from "./components/views";
+import { ModalHost } from "./components/modals";
 
-// Phase-1 scaffold smoke test: a signal-backed counter proves Preact + signals + TS + the
-// '/daily-task-manager/' base + PWA registration all build and render. Replaced in Phase 3.
-const count = signal(0);
+// Wire the store's hooks to the sync/pa layer (breaks the import cycle; mirrors the old globals).
+registerHooks({ sync: syncNow, prioritize: runPrioritize, afterCapture });
+// Apply the theme tokens before first paint (reads config already loaded from localStorage).
+applyThemeVars();
+
+function Content() {
+  switch (view.value) {
+    case "week": return <WeekView />;
+    case "board": return <BoardView />;
+    case "month": return <MonthView />;
+    case "all": return <AllView />;
+    case "history": return <HistoryView onWeekly={() => openModal({ kind: "week" })} />;
+    default: return <TodayView />;
+  }
+}
 
 export function App() {
+  useEffect(() => {
+    const canHover = matchMedia("(hover:hover) and (pointer:fine)").matches;
+    // boot: initial sync (no-ops to "local" without a token) + today's brief
+    syncNow();
+    generateBrief(false);
+    if (paReady.value) setPA("ready");
+    if (canHover) document.getElementById("captureInput")?.focus();
+
+    const onOnline = () => { syncNow(); queuePrioritize(); };
+    const onVisible = () => { if (document.visibilityState === "visible") { syncNow(); generateBrief(false); } };
+    const onFocus = () => { if (canHover && document.activeElement === document.body) document.getElementById("captureInput")?.focus(); };
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "j" || e.key === "J")) { e.preventDefault(); const i = document.getElementById("captureInput"); i?.scrollIntoView({ block: "start", behavior: "smooth" }); i?.focus(); }
+      else if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) { e.preventDefault(); openSearch(); }
+    };
+    addEventListener("online", onOnline);
+    addEventListener("visibilitychange", onVisible);
+    addEventListener("focus", onFocus);
+    addEventListener("keydown", onKey);
+    return () => {
+      removeEventListener("online", onOnline);
+      removeEventListener("visibilitychange", onVisible);
+      removeEventListener("focus", onFocus);
+      removeEventListener("keydown", onKey);
+    };
+  }, []);
+
   return (
-    <main style="font:15px/1.5 Inter,system-ui,sans-serif;max-width:640px;margin:0 auto;padding:40px 20px;color:#231f1a">
-      <h1 style="letter-spacing:-.02em">Daily Task Manager</h1>
-      <p style="color:#847a71">Preact + Signals + TypeScript + Vite scaffold — base <code>{import.meta.env.BASE_URL}</code></p>
-      <button
-        onClick={() => (count.value += 1)}
-        style="background:#b82e4e;color:#fff;border:0;border-radius:8px;padding:10px 16px;font:inherit;font-weight:600"
-      >
-        signal count: {count}
-      </button>
-    </main>
+    <>
+      <div class="shell">
+        <Sidebar />
+        <main class="main">
+          <TopHeader />
+          <CaptureBar />
+          <StatCards />
+          <section class="layout">
+            <div style="min-width:0">
+              {view.value === "today" ? <><WrapUp /><Brief /></> : null}
+              <Banner />
+              {/* keyed by view so it re-mounts and replays the contentIn fade on view change */}
+              <div id="content" key={view.value}><Content /></div>
+            </div>
+            <Aside />
+          </section>
+        </main>
+      </div>
+      <BottomNav />
+      <ModalHost />
+      <Toast />
+    </>
   );
 }
