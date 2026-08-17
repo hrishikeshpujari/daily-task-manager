@@ -48,6 +48,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}
 .top h1{font-size:28px;letter-spacing:-.8px;margin:0}
 .sub{color:var(--muted);margin:5px 0 0}
 .primary{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:650;box-shadow:var(--shadow)}
+.top-gear{display:none;border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:8px;padding:9px 12px;font-size:16px;line-height:1}
+@media(max-width:1000px){.top-gear{display:inline-flex}}
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:27px 0}
 .stat{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:17px 18px;min-height:101px;cursor:pointer;position:relative;overflow:visible}
 .stat label{color:var(--muted);font-size:12px;cursor:pointer}

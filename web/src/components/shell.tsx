@@ -83,7 +83,11 @@ export function TopHeader() {
         <h1>{title}</h1>
         <p class="sub">{sub}</p>
       </div>
-      <button class="primary" onClick={focusCapture}>+ New task</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        {/* the sidebar gear is hidden on mobile — this one keeps Settings reachable there */}
+        <button class="top-gear" aria-label="Preferences" onClick={openSettings}>⚙</button>
+        <button class="primary" onClick={focusCapture}>+ New task</button>
+      </div>
     </header>
   );
 }
