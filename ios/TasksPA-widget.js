@@ -145,7 +145,7 @@ function build(data) {
   w.backgroundColor = new Color(BG);
   w.url = APP_URL;
   w.setPadding(14, 14, 12, 14);
-  w.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
+  w.refreshAfterDate = new Date(Date.now() + 10 * 60 * 1000);
 
   const size = config.widgetFamily || "medium";
 
@@ -209,7 +209,9 @@ function build(data) {
 // ── Day widgets (the Reminders-grid look) ─────────────────────────
 // Add several SMALL widgets and set each one's Parameter (long-press the widget →
 // Edit Widget → Parameter) to: monday, tuesday, wednesday, thursday, friday,
-// saturday, sunday, today, or tomorrow. Each renders that day's card.
+// saturday, sunday, today, tomorrow, weekend (Sat+Sun combined), or someday.
+// Each renders that card. Weekday params always show their own name (e.g. "Monday"),
+// even when that day is today/tomorrow, so a Mon–Sun grid stays stable.
 function findDay(data, param) {
   const names = ["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
   const days = data.days || [];
@@ -224,14 +226,20 @@ function buildDay(data, param) {
   w.backgroundColor = new Color(BG);
   w.url = APP_URL;
   w.setPadding(14, 14, 12, 14);
-  w.refreshAfterDate = new Date(Date.now() + 30 * 60 * 1000);
+  w.refreshAfterDate = new Date(Date.now() + 10 * 60 * 1000);
   const someday = param === "someday";
+  const weekend = param === "weekend";
+  const cap = (s) => s[0].toUpperCase() + s.slice(1);
   const day = !data ? null
     : someday ? { label: "Someday", tasks: data.unscheduled || [] }
+    : weekend ? { label: "Weekend", tasks: [...((findDay(data, "saturday") || {}).tasks || []), ...((findDay(data, "sunday") || {}).tasks || [])] }
     : findDay(data, param);
-  const label = day ? day.label : param[0].toUpperCase() + param.slice(1);
+  // Weekday params always show their own name (stable Mon–Sun grid); today/tomorrow keep the friendly label.
+  const isWeekday = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"].includes(param);
+  const label = someday ? "Someday" : weekend ? "Weekend" : isWeekday ? cap(param) : (day ? day.label : cap(param));
   const st = someday ? { c: "#9A5FD8", e: "🌸" }
-    : (DAY_STYLE[label] || DAY_STYLE[param[0].toUpperCase() + param.slice(1)] || { c: TEXT, e: "" });
+    : weekend ? { c: "#9A5FD8", e: "🏖️" }
+    : (DAY_STYLE[label] || DAY_STYLE[cap(param)] || { c: TEXT, e: "" });
   const head = w.addStack();
   head.centerAlignContent();
   const name = head.addText(`${label} ${st.e} ${randomSticker(data && data.theme)}`);
@@ -261,7 +269,7 @@ function buildDay(data, param) {
 }
 
 const PARAM = (args.widgetParameter || "").trim().toLowerCase();
-const DAY_PARAMS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday","today","tomorrow","someday"];
+const DAY_PARAMS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday","today","tomorrow","someday","weekend"];
 const data = await fetchWeek();
 const pal = paletteFor((data && data.theme) || "screener", (data && data.mode) || "light");
 BG = pal.bg; TEXT = pal.text; DIM = pal.dim; DONE = pal.done; BRAND = pal.accent;
