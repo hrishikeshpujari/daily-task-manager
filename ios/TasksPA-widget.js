@@ -13,6 +13,10 @@ const WORKER_URL = "https://task-pa.hrishikesh-pujari.workers.dev"; // no traili
 const SECRET     = "PASTE-YOUR-PERSONAL-SECRET-HERE";               // your secret (not a GitHub token)
 const APP_URL    = "https://hrishikeshpujari.github.io/daily-task-manager/";
 const TZ         = "America/Los_Angeles";
+// Tap-to-complete: on MEDIUM/LARGE widgets, tapping a task runs this Shortcut to mark it done.
+// (iOS only allows per-task taps on medium/large — small day cards get one tap = open the app.)
+// Create a Shortcut with this exact name (see setup notes), or rename here to match yours.
+const COMPLETE_SHORTCUT = "Complete Task";
 
 // ── Theme palette — mirrors the web app's THEMES catalog (index.html) seed-for-seed,
 // including the contrast-corrected dark accents, using the SAME mix() derivation so this
@@ -105,12 +109,18 @@ function fmtTime(hm) {
   const h = +hm.slice(0, 2), m = hm.slice(3);
   return (((h + 11) % 12) + 1) + ":" + m + (h >= 12 ? " PM" : " AM");
 }
+function completeUrl(id) {
+  return `shortcuts://run-shortcut?name=${encodeURIComponent(COMPLETE_SHORTCUT)}&input=${encodeURIComponent(id)}`;
+}
 function addTaskLine(stack, t, size) {
   const row = stack.addStack();
   row.centerAlignContent();
-  const dot = row.addText(t.pinnedFor ? "🎯 " : "● ");
-  dot.font = Font.systemFont(size === "large" ? 11 : 10);
-  if (!t.pinnedFor) dot.textColor = new Color(tierColor(t));
+  // Per-task tap-to-complete works only on medium/large (small widgets have a single tap zone).
+  const interactive = size !== "small" && !!t.id;
+  if (interactive) row.url = completeUrl(t.id);
+  const dot = row.addText(interactive ? "○ " : (t.pinnedFor ? "🎯 " : "● "));
+  dot.font = Font.systemFont(size === "large" ? 12 : 11);
+  if (interactive || !t.pinnedFor) dot.textColor = new Color(tierColor(t));
   const em = DOMAIN_EMOJI[(t.domain || "").toLowerCase()];
   const txt = row.addText((em ? em + " " : "") + t.text);
   txt.font = Font.systemFont(size === "large" ? 13 : 12);

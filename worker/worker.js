@@ -104,6 +104,24 @@ export default {
         return json(weekView(tasks, tz, theme, mode), 200, cors);
       }
 
+      // Mark a task done (or undo) in the caller's gist — powers tap-to-complete on the iOS
+      // widget (via a Shortcut). Bumps updatedAt to now so the web app's LWW merge adopts it
+      // on next sync; theme/mode carried through untouched (same contract as /capture).
+      if (url.pathname === "/complete" && request.method === "POST") {
+        if (!user) return json({ error: "unauthorized: /complete needs a per-person secret" }, 401, cors);
+        let body; try { body = await request.json(); } catch { return json({ error: "bad json" }, 400, cors); }
+        const id = String(body.id || "").trim();
+        if (!id) return json({ error: "missing id" }, 400, cors);
+        const { gistId, tasks, theme, mode, themeUpdatedAt } = await loadTasks(env, user);
+        const t = tasks.find(x => x.id === id && !x.deleted);
+        if (!t) return json({ error: "task not found" }, 404, cors);
+        const undo = body.undo === true;
+        const now = Date.now();
+        t.done = !undo; t.completedAt = undo ? null : now; t.updatedAt = now;
+        await saveTasks(user, gistId, tasks, theme, mode, themeUpdatedAt);
+        return json({ ok: true, id, text: t.text, done: t.done }, 200, cors);
+      }
+
       // default: generic Claude relay (legacy shape, unchanged for the web app)
       if (request.method !== "POST") return json({ error: "POST only" }, 405, cors);
       if (!relayOk) return json({ error: "unauthorized" }, 401, cors);
